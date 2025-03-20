@@ -1,0 +1,197 @@
+/* Root styles for a professional, sleek theme */
+:root {
+  --dark-bg: #0F172A;  /* Deep navy blue */
+  --accent-color: #4F46E5;  /* Indigo for contrast */
+  --accent-light: #6366F1;  /* Lighter indigo */
+  --text-light: #E5E7EB;  /* Soft grayish white */
+  --text-muted: #9CA3AF;  /* Muted gray */
+  --border-light: rgba(255, 255, 255, 0.1);
+  --shadow-light: rgba(255, 255, 255, 0.08);
+}
+
+/* Navbar container */
+.navbar {
+  background: var(--dark-bg);
+  box-shadow: 0 6px 20px var(--shadow-light);
+  backdrop-filter: blur(15px);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  border-bottom: 1px solid var(--border-light);
+  transition: all 0.3s ease-in-out;
+}
+
+/* Toolbar styles */
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.8rem 3rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+  transition: all 0.3s ease-in-out;
+}
+
+/* Branding */
+.brand {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  padding: 5px 0;
+  transition: transform 0.3s ease-in-out;
+}
+
+.brandLogo {
+  height: 50px;
+  width: auto;
+  transition: transform 0.3s ease-in-out;
+}
+
+.brand:hover .brandLogo {
+  transform: scale(1.05);
+}
+
+/* User Info */
+.userName {
+  font-weight: 500;
+  color: var(--text-light);
+  margin-right: 1.5rem;
+  font-size: 0.95rem;
+}
+
+/* Avatar */
+.avatar {
+  background: var(--accent-color);
+  color: white;
+  transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+  border: 2px solid transparent;
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.avatar:hover {
+  transform: scale(1.08);
+  border-color: var(--accent-light);
+  box-shadow: 0 0 18px rgba(79, 70, 229, 0.3);
+}
+
+/* Dropdown Menu */
+.menuPaper {
+  background: var(--dark-bg);
+  color: var(--text-light);
+  border-radius: 10px;
+  margin-top: 10px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border-light);
+  overflow: hidden;
+  transition: all 0.3s ease-in-out;
+}
+
+.menuItem {
+  padding: 12px 22px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  transition: all 0.2s ease-in-out;
+}
+
+.menuItem:hover {
+  background: var(--accent-color);
+  color: white;
+  font-weight: 500;
+  padding-left: 28px;
+}
+
+/* Authentication Buttons */
+.authContainer {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.authButton {
+  background: transparent;
+  color: var(--text-light);
+  font-weight: 500;
+  border-radius: 8px;
+  text-transform: none;
+  padding: 8px 22px;
+  transition: all 0.3s ease-in-out;
+  font-size: 0.95rem;
+  border: 1.5px solid var(--border-light);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 100px;
+}
+
+.authButtonRegister {
+  background: var(--accent-color);
+  color: white;
+  border: none;
+}
+
+.authButton:hover {
+  border-color: var(--accent-light);
+  color: var(--accent-light);
+  transform: translateY(-2px);
+}
+
+.authButtonRegister:hover {
+  background: var(--accent-light);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+}
+
+/* Gradient Hover Effect */
+.authButton::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(120deg, rgba(79, 70, 229, 0.1), rgba(99, 102, 241, 0));
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+}
+
+.authButton:hover::before {
+  opacity: 1;
+}
+
+/* Mobile Menu Button */
+.mobileMenuButton {
+  color: var(--text-light);
+  transition: color 0.3s ease-in-out;
+}
+
+.mobileMenuButton:hover {
+  color: var(--accent-light);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .toolbar {
+    padding: 0.6rem 1.5rem;
+  }
+
+  .brandLogo {
+    height: 45px;
+  }
+
+  .authButton {
+    padding: 6px 16px;
+    min-width: 90px;
+    font-size: 0.9rem;
+  }
+
+  .userName {
+    display: none;
+  }
+}

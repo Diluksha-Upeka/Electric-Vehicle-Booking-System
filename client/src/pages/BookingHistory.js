@@ -18,8 +18,10 @@ import {
   Button,
   CircularProgress,
   Alert,
+  TextField,
+  MenuItem,
 } from '@mui/material';
-import { Cancel as CancelIcon, Info as InfoIcon } from '@mui/icons-material';
+import { Cancel as CancelIcon, Info as InfoIcon, Edit as EditIcon } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import axios from 'axios';
 
@@ -31,32 +33,71 @@ const BookingHistory = () => {
   const [error, setError] = useState('');
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [openDialog, setOpenDialog] = useState(false);
+  const [statusUpdateDialog, setStatusUpdateDialog] = useState(false);
+  const [newStatus, setNewStatus] = useState('');
+
+  const validStatuses = ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled'];
 
   useEffect(() => {
     fetchBookings();
-  }, []);
+  }, [user]);
 
   const fetchBookings = async () => {
     try {
-      const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/bookings/user`, {
+      const endpoint = user?.role === 'admin' ? '' : '/my-bookings';
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/bookings${endpoint}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
-      setBookings(response.data);
+      
+      // Transform the data to ensure all required fields are present
+      const transformedBookings = response.data.map(booking => ({
+        ...booking,
+        user: booking.user || { firstName: 'Unknown', lastName: 'User' },
+        station: booking.station || { name: 'Unknown Station' },
+        connectorType: booking.connectorType || 'N/A',
+        powerOutput: booking.powerOutput || 0,
+        estimatedCost: booking.cost?.estimated || 0
+      }));
+      
+      setBookings(transformedBookings);
       setLoading(false);
+      setError('');
     } catch (err) {
-      setError('Failed to fetch bookings');
+      console.error('Error fetching bookings:', err);
+      setError(err.response?.data?.message || 'Failed to fetch bookings');
       setLoading(false);
     }
   };
 
   const handleCancelBooking = async (bookingId) => {
     try {
-      await axios.delete(`${process.env.REACT_APP_API_URL}/api/bookings/${bookingId}`, {
+      await axios.post(`${process.env.REACT_APP_API_URL}/api/bookings/${bookingId}/cancel`, {}, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
+      setError('');
       fetchBookings();
     } catch (err) {
-      setError('Failed to cancel booking');
+      console.error('Error cancelling booking:', err);
+      setError(err.response?.data?.message || 'Failed to cancel booking');
+    }
+  };
+
+  const handleUpdateStatus = async () => {
+    if (!selectedBooking || !newStatus) return;
+
+    try {
+      await axios.put(
+        `${process.env.REACT_APP_API_URL}/api/bookings/${selectedBooking._id}/status`,
+        { status: newStatus },
+        { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }}
+      );
+      setStatusUpdateDialog(false);
+      setNewStatus('');
+      setError('');
+      fetchBookings();
+    } catch (err) {
+      console.error('Error updating booking status:', err);
+      setError(err.response?.data?.message || 'Failed to update booking status');
     }
   };
 
@@ -74,10 +115,25 @@ const BookingHistory = () => {
     setSelectedBooking(null);
   };
 
+  const handleOpenStatusUpdate = (booking) => {
+    setSelectedBooking(booking);
+    setNewStatus(booking.status);
+    setStatusUpdateDialog(true);
+  };
+
+  const handleCloseStatusUpdate = () => {
+    setStatusUpdateDialog(false);
+    setSelectedBooking(null);
+    setNewStatus('');
+  };
+
   const getStatusChipColor = (status) => {
     switch (status.toLowerCase()) {
       case 'upcoming':
+      case 'pending':
         return 'primary';
+      case 'in_progress':
+        return 'warning';
       case 'completed':
         return 'success';
       case 'cancelled':
@@ -129,7 +185,7 @@ const BookingHistory = () => {
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       <Paper sx={{ p: 4 }}>
         <Typography variant="h4" gutterBottom>
-          Booking History
+          {user?.role === 'admin' ? 'All Bookings' : 'My Booking History'}
         </Typography>
 
         <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
@@ -147,9 +203,11 @@ const BookingHistory = () => {
                   <Grid container spacing={2} alignItems="center">
                     <Grid item xs={12} sm={4}>
                       <Typography variant="h6">{booking.station.name}</Typography>
-                      <Typography color="text.secondary" variant="body2">
-                        {booking.station.address}
-                      </Typography>
+                      {user?.role === 'admin' && (
+                        <Typography variant="body2" color="text.secondary">
+                          User: {booking.user.firstName} {booking.user.lastName}
+                        </Typography>
+                      )}
                     </Grid>
                     <Grid item xs={12} sm={3}>
                       <Typography variant="body2">
@@ -184,7 +242,17 @@ const BookingHistory = () => {
                         >
                           <InfoIcon />
                         </IconButton>
-                        {activeTab === 0 && booking.status !== 'cancelled' && (
+                        {user?.role === 'admin' && (
+                          <IconButton
+                            size="small"
+                            onClick={() => handleOpenStatusUpdate(booking)}
+                            color="primary"
+                          >
+                            <EditIcon />
+                          </IconButton>
+                        )}
+                        {(activeTab === 0 && booking.status !== 'cancelled' && 
+                         (user?.role === 'admin' || booking.user._id === user?._id)) && (
                           <IconButton
                             size="small"
                             onClick={() => handleCancelBooking(booking._id)}
@@ -210,9 +278,11 @@ const BookingHistory = () => {
               <Grid container spacing={2}>
                 <Grid item xs={12}>
                   <Typography variant="h6">{selectedBooking.station.name}</Typography>
-                  <Typography color="text.secondary">
-                    {selectedBooking.station.address}
-                  </Typography>
+                  {user?.role === 'admin' && (
+                    <Typography color="text.secondary">
+                      User: {selectedBooking.user.firstName} {selectedBooking.user.lastName}
+                    </Typography>
+                  )}
                 </Grid>
                 <Grid item xs={12}>
                   <Typography variant="subtitle1">Booking Information</Typography>
@@ -227,7 +297,7 @@ const BookingHistory = () => {
                   <Typography>Connector Type: {selectedBooking.connectorType}</Typography>
                   <Typography>Power Output: {selectedBooking.powerOutput}kW</Typography>
                   <Typography>
-                    Estimated Cost: ${selectedBooking.estimatedCost.toFixed(2)}
+                    Estimated Cost: ${selectedBooking.estimatedCost?.toFixed(2)}
                   </Typography>
                 </Grid>
                 <Grid item xs={12}>
@@ -244,6 +314,35 @@ const BookingHistory = () => {
             <Button onClick={handleCloseDialog}>Close</Button>
           </DialogActions>
         </Dialog>
+
+        {/* Status Update Dialog */}
+        {user?.role === 'admin' && (
+          <Dialog open={statusUpdateDialog} onClose={handleCloseStatusUpdate} maxWidth="xs" fullWidth>
+            <DialogTitle>Update Booking Status</DialogTitle>
+            <DialogContent>
+              <TextField
+                select
+                fullWidth
+                label="Status"
+                value={newStatus}
+                onChange={(e) => setNewStatus(e.target.value)}
+                margin="normal"
+              >
+                {validStatuses.map((status) => (
+                  <MenuItem key={status} value={status}>
+                    {status.charAt(0).toUpperCase() + status.slice(1)}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={handleCloseStatusUpdate}>Cancel</Button>
+              <Button onClick={handleUpdateStatus} variant="contained" color="primary">
+                Update
+              </Button>
+            </DialogActions>
+          </Dialog>
+        )}
       </Paper>
     </Container>
   );

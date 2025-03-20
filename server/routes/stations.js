@@ -3,6 +3,8 @@ const router = express.Router();
 const ChargingStation = require('../models/ChargingStation');
 const { authenticateJWT, authorize } = require('./auth');
 const User = require('../models/User');
+const TimeSlot = require('../models/TimeSlot');
+const stationService = require('../services/stationService');
 
 // Create a new station (admin only)
 router.post('/', authenticateJWT, authorize('admin'), async (req, res) => {
@@ -119,17 +121,18 @@ router.get('/:id/time-slots', async (req, res) => {
       return res.status(404).json({ message: 'Station not found' });
     }
 
-    const timeSlots = station.timeSlots.find(slot => 
-      slot.date.toISOString().split('T')[0] === date
-    );
+    // Get time slots for the selected date
+    const timeSlots = await TimeSlot.find({
+      station: req.params.id,
+      date: new Date(date),
+      status: 'Available',
+      availableSpots: { $gt: 0 }
+    }).sort({ startTime: 1 });
 
-    if (!timeSlots) {
-      return res.json({ slots: [] });
-    }
-
-    res.json(timeSlots);
+    res.json({ slots: timeSlots });
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching time slots' });
+    console.error('Error fetching time slots:', error);
+    res.status(500).json({ message: 'Error fetching time slots', error: error.message });
   }
 });
 
