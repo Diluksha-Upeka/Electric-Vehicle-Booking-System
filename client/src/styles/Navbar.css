@@ -1,0 +1,114 @@
+/* Navbar.css */
+
+/* Root styles for an eco-friendly theme */
+:root {
+  --primary-color: #1a5f7a;
+  --secondary-color: #2ecc71;
+  --text-color: #ffffff;
+  --hover-color: #27ae60;
+  --gradient-primary: linear-gradient(135deg, #1a5f7a 0%, #2ecc71 100%);
+  --gradient-hover: linear-gradient(135deg, #27ae60 0%, #219a52 100%);
+}
+
+/* Navbar container */
+.app-bar {
+  background: var(--gradient-primary);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(10px);
+  background-color: rgba(26, 95, 122, 0.95);
+}
+
+/* Toolbar styles */
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 1rem;
+}
+
+/* Branding text */
+.brand {
+  font-weight: 700;
+  font-size: 1.5rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: all 0.3s ease-in-out;
+  color: var(--text-color);
+  text-decoration: none;
+}
+
+.brand:hover {
+  color: var(--secondary-color);
+  transform: translateY(-2px);
+}
+
+/* User name styling */
+.user-name {
+  font-weight: 500;
+  color: var(--text-color);
+  margin-right: 1rem;
+}
+
+/* Avatar styling */
+.avatar {
+  background: var(--gradient-primary);
+  color: var(--text-color);
+  transition: all 0.3s ease-in-out;
+  border: 2px solid var(--secondary-color);
+}
+
+.avatar:hover {
+  transform: scale(1.1);
+  box-shadow: 0 5px 15px rgba(46, 204, 113, 0.3);
+}
+
+/* Menu dropdown */
+.menu-paper {
+  background: var(--gradient-primary);
+  color: var(--text-color);
+  border-radius: 15px;
+  margin-top: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+.menu-item {
+  transition: all 0.3s ease-in-out;
+  padding: 12px 24px;
+  color: var(--text-color);
+}
+
+.menu-item:hover {
+  background: var(--gradient-hover);
+  transform: translateX(5px);
+}
+
+/* Buttons (Login & Register) */
+.auth-button {
+  background: var(--gradient-primary);
+  color: var(--text-color);
+  font-weight: 600;
+  border-radius: 25px;
+  text-transform: none;
+  padding: 8px 24px;
+  transition: all 0.3s ease-in-out;
+  border: none;
+  margin-left: 10px;
+}
+
+.auth-button:hover {
+  background: var(--gradient-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(46, 204, 113, 0.3);
+}
+
+/* Mobile menu button */
+.mobile-menu-button {
+  color: var(--text-color);
+  transition: all 0.3s ease-in-out;
+}
+
+.mobile-menu-button:hover {
+  color: var(--secondary-color);
+  transform: scale(1.1);
+}
+  
