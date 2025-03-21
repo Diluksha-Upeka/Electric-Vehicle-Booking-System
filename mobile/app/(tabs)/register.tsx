@@ -45,19 +45,25 @@ export default function Register() {
 
     try {
       const API_BASE_URL = __DEV__
-        ? Platform.select({
-            android: "http://192.168.223.216:8800", // Android emulator
-            ios: "http://localhost:8800",    // iOS simulator
-            default: "http://192.168.223.216:8800", // Physical device
-          })
-        : "http://192.168.223.216:8800"; // Production URL
+      ? Platform.select({
+          android: 'http://192.168.223.216:5000',      // Android emulator - fixed IP
+          ios: 'http://localhost:5000',         // iOS simulator
+          default: 'http://192.168.223.216:5000' // Physical device - fixed IP
+        })
+      : 'http://192.168.223.216:5000'; // Production URL - fixed IP// Production URL
 
-        const response = await axios.post(`${API_BASE_URL}/api/auth/register`, {
-          firstName: username,  // Match User model fields
-          lastName: "User",  // Add a field for lastName or collect it in the form
-          email,
-          password,
-        });
+      const response = await axios.post(`${API_BASE_URL}/api/auth/register`, {
+        firstName: formData.username,  // Rename to match backend
+        lastName: "User",  // Provide a default last name
+        email: formData.email,
+        password: formData.password,
+        role: "user",  // Use lowercase "user" to match backend
+      });
+      
+      
+      
+      
+      
 
       if (response.status === 201) {
         Alert.alert("Success", "User registered successfully");

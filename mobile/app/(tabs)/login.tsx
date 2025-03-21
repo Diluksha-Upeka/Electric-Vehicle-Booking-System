@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import axios from "axios";
 import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function Login({ setIsLoggedIn }) {
   const router = useRouter();
@@ -33,11 +34,11 @@ export default function Login({ setIsLoggedIn }) {
     try {
       const API_BASE_URL = __DEV__
         ? Platform.select({
-            android: "http://192.168.223.216:8800", // Android emulator
-            ios: "http://localhost:8800",    // iOS simulator
-            default: "http://192.168.223.216:8800", // Physical device
+            android: "http://192.168.223.216:5000",
+            ios: "http://localhost:5000",
+            default: "http://192.168.223.216:5000",
           })
-        : "http://192.168.223.216:8800"; // Production URL
+        : "http://192.168.223.216:5000"; 
 
       const response = await axios.post(
         `${API_BASE_URL}/api/auth/login`,
@@ -50,21 +51,22 @@ export default function Login({ setIsLoggedIn }) {
 
       if (response.status === 200) {
         setError("");
-        setSuccess(`Successfully logged in!`);
+        setSuccess("Successfully logged in!");
         setIsLoggedIn(true);
-        
-        // Update last login time on server
-        await axios.put(
-          `${API_BASE_URL}/api/users/update-login`,
-          {},
-          {
-            withCredentials: true,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-        
+
+        // ✅ Store auth token and user ID in AsyncStorage
+        try {
+          await AsyncStorage.setItem("authToken", response.data.token);
+          await AsyncStorage.setItem("userId", response.data.user._id);
+          console.log("Stored Token:", response.data.token);
+          console.log("Stored User ID:", response.data.user._id);
+        } catch (storageError) {
+          console.error("Error saving token:", storageError);
+        }
+
+        // ✅ Redirect to booking page after login
         setTimeout(() => {
-          router.push("/");
+          router.push("/booking");
         }, 2000);
       }
     } catch (error) {
@@ -120,7 +122,7 @@ export default function Login({ setIsLoggedIn }) {
         <TouchableOpacity onPress={() => router.push("/register")}>
           <Text style={styles.link}>Don't have an account?</Text>
         </TouchableOpacity>
-        
+
         <TouchableOpacity onPress={() => router.push("/forgot-password")} style={styles.forgotPasswordLink}>
           <Text style={styles.link}>Forgot password?</Text>
         </TouchableOpacity>
@@ -190,5 +192,5 @@ const styles = StyleSheet.create({
   },
   forgotPasswordLink: {
     marginTop: 5,
-  }
+  },
 });

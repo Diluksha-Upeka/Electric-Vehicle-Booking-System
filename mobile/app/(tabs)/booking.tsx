@@ -108,12 +108,12 @@ export default function BookingScreen() {
   
   // API configuration based on platform
   const API_BASE_URL = __DEV__
-    ? Platform.select({
-        android: "http://192.168.223.216:8800",
-        ios: "http://localhost:8800",
-        default: "http://192.168.223.216:8800"
-      })
-    : "http://192.168.223.216:8800";
+  ? Platform.select({
+      android: 'http://192.168.223.216:5000',      // Android emulator - fixed IP
+      ios: 'http://localhost:5000',         // iOS simulator
+      default: 'http://192.168.223.216:5000' // Physical device - fixed IP
+    })
+  : 'http://192.168.223.216:5000'; // Production URL - fixed IP
 
   // Check authentication status and fetch stations on component mount
   useEffect(() => {

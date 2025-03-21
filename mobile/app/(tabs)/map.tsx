@@ -7,11 +7,12 @@ import axios from 'axios';
 // API configuration based on platform - fixed the IP address
 const API_BASE_URL = __DEV__
   ? Platform.select({
-      android: 'http://192.168.223.216:8800',      // Android emulator - fixed IP
-      ios: 'http://localhost:8800',         // iOS simulator
-      default: 'http://192.168.223.216:8800' // Physical device - fixed IP
+      android: 'http://192.168.223.216:5000',      // Android emulator - fixed IP
+      ios: 'http://localhost:5000',         // iOS simulator
+      default: 'http://192.168.223.216:5000' // Physical device - fixed IP
     })
-  : 'http://192.168.223.216:8800'; // Production URL - fixed IP
+  : 'http://192.168.223.216:5000'; // Production URL - fixed IP
+
 
 // Keeping the original Station interface from the first file
 interface Station {
@@ -289,7 +290,7 @@ const styles = StyleSheet.create({
   },
   stationInfoContainer: {
     position: 'absolute',
-    bottom: 20,
+    bottom: 170,
     left: 20,
     right: 20,
     backgroundColor: 'white',
