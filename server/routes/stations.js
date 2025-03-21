@@ -9,12 +9,11 @@ const stationService = require('../services/stationService');
 // Create a new station (admin only)
 router.post('/', authenticateJWT, authorize('admin'), async (req, res) => {
   try {
-    const station = new ChargingStation(req.body);
-    await station.save();
+    const station = await stationService.createStation(req.body);
     res.status(201).json(station);
   } catch (error) {
     console.error('Error creating station:', error);
-    res.status(500).json({ message: 'Error creating station' });
+    res.status(500).json({ message: error.message || 'Error creating station' });
   }
 });
 

@@ -66,18 +66,18 @@ const AddStation = ({ open, onClose, onAdd }) => {
       minimumCharge: 0
     },
     amenities: [],
-    openingTime: '09:00 AM',
-    closingTime: '06:00 PM',
+    openingTime: '08:00 AM',
+    closingTime: '08:00 PM',
     availability: {
       isOpen24Hours: false,
       operatingHours: {
-        monday: { open: '09:00 AM', close: '06:00 PM' },
-        tuesday: { open: '09:00 AM', close: '06:00 PM' },
-        wednesday: { open: '09:00 AM', close: '06:00 PM' },
-        thursday: { open: '09:00 AM', close: '06:00 PM' },
-        friday: { open: '09:00 AM', close: '06:00 PM' },
-        saturday: { open: '09:00 AM', close: '06:00 PM' },
-        sunday: { open: '09:00 AM', close: '06:00 PM' }
+        monday: { open: '08:00 AM', close: '08:00 PM' },
+        tuesday: { open: '08:00 AM', close: '08:00 PM' },
+        wednesday: { open: '08:00 AM', close: '08:00 PM' },
+        thursday: { open: '08:00 AM', close: '08:00 PM' },
+        friday: { open: '08:00 AM', close: '08:00 PM' },
+        saturday: { open: '08:00 AM', close: '08:00 PM' },
+        sunday: { open: '08:00 AM', close: '08:00 PM' }
       }
     },
     location: {
@@ -103,20 +103,9 @@ const AddStation = ({ open, onClose, onAdd }) => {
     
     if (!formData.name) newErrors.name = 'Name is required';
     if (!formData.description) newErrors.description = 'Description is required';
-    if (!formData.openingTime) newErrors.openingTime = 'Opening time is required';
-    if (!formData.closingTime) newErrors.closingTime = 'Closing time is required';
     if (!formData.totalChargers) newErrors.totalChargers = 'Number of chargers is required';
     else if (formData.totalChargers < 1) newErrors.totalChargers = 'Must have at least 1 charger';
     else if (formData.totalChargers > 50) newErrors.totalChargers = 'Maximum 50 chargers allowed';
-
-    // Validate time format and range
-    if (formData.openingTime && formData.closingTime) {
-      const openTime = new Date(`1970-01-01 ${formData.openingTime}`);
-      const closeTime = new Date(`1970-01-01 ${formData.closingTime}`);
-      if (openTime >= closeTime) {
-        newErrors.openingTime = 'Opening time must be before closing time';
-      }
-    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -290,57 +279,29 @@ const AddStation = ({ open, onClose, onAdd }) => {
             </Grid>
 
             <Grid item xs={12}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={formData.availability.isOpen24Hours}
-                    onChange={handle24HoursChange}
-                  />
-                }
-                label="Open 24/7"
-              />
+              <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+                Operating Hours: 8:00 AM - 8:00 PM (Fixed)
+              </Typography>
             </Grid>
 
-            {!formData.availability.isOpen24Hours && (
-              <>
-                <Grid item xs={12} sm={6}>
-                  <LocalizationProvider dateAdapter={AdapterDateFns}>
-                    <TimePicker
-                      label="Opening Time"
-                      value={formData.openingTime ? new Date(`1970-01-01 ${formData.openingTime}`) : null}
-                      onChange={(value) => handleTimeChange('openingTime', value)}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          fullWidth
-                          error={!!errors.openingTime}
-                          helperText={errors.openingTime}
-                          required
-                        />
-                      )}
-                    />
-                  </LocalizationProvider>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <LocalizationProvider dateAdapter={AdapterDateFns}>
-                    <TimePicker
-                      label="Closing Time"
-                      value={formData.closingTime ? new Date(`1970-01-01 ${formData.closingTime}`) : null}
-                      onChange={(value) => handleTimeChange('closingTime', value)}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          fullWidth
-                          error={!!errors.closingTime}
-                          helperText={errors.closingTime}
-                          required
-                        />
-                      )}
-                    />
-                  </LocalizationProvider>
-                </Grid>
-              </>
-            )}
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Opening Time"
+                value="08:00 AM"
+                disabled
+                helperText="Fixed operating hours"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Closing Time"
+                value="08:00 PM"
+                disabled
+                helperText="Fixed operating hours"
+              />
+            </Grid>
 
             <Grid item xs={12} sm={6}>
               <TextField

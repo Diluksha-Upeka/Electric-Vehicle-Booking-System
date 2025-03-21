@@ -23,14 +23,76 @@ import {
   DialogActions,
   DialogContentText,
   TextField,
-  MenuItem
+  MenuItem,
+  Card,
+  CardContent,
+  useTheme,
+  alpha,
+  Fade,
+  Tooltip,
+  Chip,
+  Avatar,
+  Divider,
 } from '@mui/material';
-import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import {
+  Add as AddIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  People as PeopleIcon,
+  EvStation as EvStationIcon,
+  Speed as SpeedIcon,
+  TrendingUp as TrendingUpIcon,
+  Person as PersonIcon,
+  AdminPanelSettings as AdminIcon,
+} from '@mui/icons-material';
 import axios from 'axios';
 import AddStation from '../components/AddStation';
 import EditStation from '../components/EditStation';
 
+const StatCard = ({ title, value, icon, color }) => {
+  const theme = useTheme();
+  
+  return (
+    <Card 
+      sx={{ 
+        height: '100%',
+        background: `linear-gradient(135deg, ${alpha(color, 0.1)} 0%, ${alpha(color, 0.05)} 100%)`,
+        border: `1px solid ${alpha(color, 0.2)}`,
+        transition: 'all 0.3s ease-in-out',
+        '&:hover': {
+          transform: 'translateY(-4px)',
+          boxShadow: `0 8px 24px ${alpha(color, 0.15)}`,
+        }
+      }}
+    >
+      <CardContent>
+        <Box display="flex" alignItems="center" justifyContent="space-between">
+          <Box>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              {title}
+            </Typography>
+            <Typography variant="h4" component="div" sx={{ fontWeight: 600 }}>
+              {value}
+            </Typography>
+          </Box>
+          <Avatar 
+            sx={{ 
+              bgcolor: alpha(color, 0.1),
+              color: color,
+              width: 48,
+              height: 48,
+            }}
+          >
+            {icon}
+          </Avatar>
+        </Box>
+      </CardContent>
+    </Card>
+  );
+};
+
 const AdminDashboard = () => {
+  const theme = useTheme();
   const [activeTab, setActiveTab] = useState(0);
   const [users, setUsers] = useState([]);
   const [stations, setStations] = useState([]);
@@ -186,125 +248,359 @@ const AdminDashboard = () => {
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
-        <CircularProgress />
+      <Box 
+        display="flex" 
+        flexDirection="column" 
+        justifyContent="center" 
+        alignItems="center" 
+        minHeight="80vh"
+        gap={2}
+      >
+        <CircularProgress size={60} />
+        <Typography variant="h6" color="text.secondary">
+          Loading dashboard...
+        </Typography>
       </Box>
     );
   }
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Grid container spacing={3}>
-        {/* Welcome Section */}
-        <Grid item xs={12}>
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h4" gutterBottom>
-              Admin Dashboard
-            </Typography>
-            <Typography variant="subtitle1" color="text.secondary">
-              Manage users and stations
-            </Typography>
-          </Paper>
-        </Grid>
+      <Fade in timeout={500}>
+        <Grid container spacing={3}>
+          {/* Welcome Section */}
+          <Grid item xs={12}>
+            <Paper 
+              sx={{ 
+                p: 4,
+                background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.1)} 0%, ${alpha(theme.palette.primary.main, 0.05)} 100%)`,
+                border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+              }}
+            >
+              <Typography variant="h4" gutterBottom sx={{ fontWeight: 600 }}>
+                Welcome back, Admin
+              </Typography>
+              <Typography variant="subtitle1" color="text.secondary">
+                Here's what's happening with your EV charging network
+              </Typography>
+            </Paper>
+          </Grid>
 
-        {/* Tabs */}
-        <Grid item xs={12}>
-          <Paper>
-            <Tabs value={activeTab} onChange={handleTabChange}>
-              <Tab label="Users" />
-              <Tab label="Stations" />
-            </Tabs>
-          </Paper>
-        </Grid>
+          {/* Stats Cards */}
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard
+              title="Total Users"
+              value={users.length}
+              icon={<PeopleIcon />}
+              color={theme.palette.primary.main}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard
+              title="Active Stations"
+              value={stations.length}
+              icon={<EvStationIcon />}
+              color={theme.palette.success.main}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard
+              title="Admin Users"
+              value={users.filter(user => user.role === 'admin').length}
+              icon={<AdminIcon />}
+              color={theme.palette.warning.main}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard
+              title="Regular Users"
+              value={users.filter(user => user.role === 'user').length}
+              icon={<PersonIcon />}
+              color={theme.palette.info.main}
+            />
+          </Grid>
 
-        {/* Content */}
-        <Grid item xs={12}>
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
+          {/* Tabs */}
+          <Grid item xs={12}>
+            <Paper 
+              sx={{ 
+                borderRadius: 2,
+                overflow: 'hidden',
+                boxShadow: 'none',
+                border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+              }}
+            >
+              <Tabs 
+                value={activeTab} 
+                onChange={handleTabChange}
+                sx={{
+                  borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                  '& .MuiTab-root': {
+                    textTransform: 'none',
+                    fontWeight: 500,
+                    minHeight: 48,
+                  }
+                }}
+              >
+                <Tab 
+                  label="Users" 
+                  icon={<PeopleIcon />} 
+                  iconPosition="start"
+                />
+                <Tab 
+                  label="Stations" 
+                  icon={<EvStationIcon />} 
+                  iconPosition="start"
+                />
+              </Tabs>
+            </Paper>
+          </Grid>
 
-          {activeTab === 0 ? (
-            // Users Table
-            <TableContainer component={Paper}>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Name</TableCell>
-                    <TableCell>Email</TableCell>
-                    <TableCell>Role</TableCell>
-                    <TableCell>Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {users.map((user) => (
-                    <TableRow key={user._id}>
-                      <TableCell>{`${user.firstName} ${user.lastName}`}</TableCell>
-                      <TableCell>{user.email}</TableCell>
-                      <TableCell>{user.role}</TableCell>
-                      <TableCell>
-                        <IconButton size="small" onClick={() => handleEditUserClick(user)}>
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton size="small" onClick={() => handleDeleteUserClick(user)}>
-                          <DeleteIcon />
-                        </IconButton>
-                      </TableCell>
+          {/* Content */}
+          <Grid item xs={12}>
+            {error && (
+              <Alert 
+                severity="error" 
+                sx={{ 
+                  mb: 2,
+                  borderRadius: 2,
+                  '& .MuiAlert-icon': {
+                    fontSize: '2rem',
+                  }
+                }}
+              >
+                {error}
+              </Alert>
+            )}
+
+            {activeTab === 0 ? (
+              // Users Table
+              <TableContainer 
+                component={Paper}
+                sx={{ 
+                  borderRadius: 2,
+                  overflow: 'hidden',
+                  boxShadow: 'none',
+                  border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                }}
+              >
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Name</TableCell>
+                      <TableCell>Email</TableCell>
+                      <TableCell>Role</TableCell>
+                      <TableCell align="right">Actions</TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          ) : (
-            // Stations Table
-            <>
-              <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
-                <Button
-                  variant="contained"
-                  startIcon={<AddIcon />}
-                  onClick={() => setAddStationOpen(true)}
+                  </TableHead>
+                  <TableBody>
+                    {users.map((user) => (
+                      <TableRow 
+                        key={user._id}
+                        sx={{
+                          '&:hover': {
+                            backgroundColor: alpha(theme.palette.primary.main, 0.04),
+                          }
+                        }}
+                      >
+                        <TableCell>
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <Avatar 
+                              sx={{ 
+                                width: 32, 
+                                height: 32,
+                                bgcolor: alpha(theme.palette.primary.main, 0.1),
+                                color: theme.palette.primary.main,
+                              }}
+                            >
+                              <PersonIcon />
+                            </Avatar>
+                            <Typography variant="body2">
+                              {`${user.firstName} ${user.lastName}`}
+                            </Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell>{user.email}</TableCell>
+                        <TableCell>
+                          <Chip 
+                            label={user.role}
+                            size="small"
+                            color={user.role === 'ADMIN' ? 'warning' : 'default'}
+                            sx={{ 
+                              borderRadius: 1,
+                              textTransform: 'uppercase',
+                              fontWeight: 500,
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell align="right">
+                          <Tooltip title="Edit user">
+                            <IconButton 
+                              size="small" 
+                              onClick={() => handleEditUserClick(user)}
+                              sx={{ 
+                                color: theme.palette.primary.main,
+                                '&:hover': {
+                                  backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                                }
+                              }}
+                            >
+                              <EditIcon />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Delete user">
+                            <IconButton 
+                              size="small" 
+                              onClick={() => handleDeleteUserClick(user)}
+                              sx={{ 
+                                color: theme.palette.error.main,
+                                '&:hover': {
+                                  backgroundColor: alpha(theme.palette.error.main, 0.1),
+                                }
+                              }}
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </Tooltip>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            ) : (
+              // Stations Table
+              <TableContainer 
+                component={Paper}
+                sx={{ 
+                  borderRadius: 2,
+                  overflow: 'hidden',
+                  boxShadow: 'none',
+                  border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                }}
+              >
+                <Box 
+                  sx={{ 
+                    p: 2, 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                  }}
                 >
-                  Add Station
-                </Button>
-              </Box>
-              <TableContainer component={Paper}>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Name</TableCell>
-                      <TableCell>Description</TableCell>
-                    <TableCell>Connectors</TableCell>
-                      <TableCell>Rate (LKR/hr)</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell>Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {stations.map((station) => (
-                    <TableRow key={station._id}>
-                      <TableCell>{station.name}</TableCell>
-                        <TableCell>{station.description}</TableCell>
-                        <TableCell>{station.numberOfConnectors}</TableCell>
-                        <TableCell>{station.ratePerHour}</TableCell>
-                        <TableCell>{station.status}</TableCell>
-                      <TableCell>
-                          <IconButton size="small" onClick={() => handleEditClick(station)}>
-                          <EditIcon />
-                        </IconButton>
-                          <IconButton size="small" onClick={() => handleDeleteClick(station)}>
-                          <DeleteIcon />
-                        </IconButton>
-                      </TableCell>
+                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                    Charging Stations
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    onClick={() => setAddStationOpen(true)}
+                    sx={{
+                      borderRadius: 2,
+                      textTransform: 'none',
+                      px: 3,
+                    }}
+                  >
+                    Add Station
+                  </Button>
+                </Box>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Name</TableCell>
+                      <TableCell>Location</TableCell>
+                      <TableCell>Status</TableCell>
+                      <TableCell align="right">Actions</TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-            </>
-          )}
+                  </TableHead>
+                  <TableBody>
+                    {stations.map((station) => (
+                      <TableRow 
+                        key={station._id}
+                        sx={{
+                          '&:hover': {
+                            backgroundColor: alpha(theme.palette.primary.main, 0.04),
+                          }
+                        }}
+                      >
+                        <TableCell>
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <Avatar 
+                              sx={{ 
+                                width: 32, 
+                                height: 32,
+                                bgcolor: alpha(theme.palette.success.main, 0.1),
+                                color: theme.palette.success.main,
+                              }}
+                            >
+                              <EvStationIcon />
+                            </Avatar>
+                            <Typography variant="body2">
+                              {station.name}
+                            </Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">
+                            {station.location?.address || 'No address'}
+                          </Typography>
+                          {station.location?.coordinates && (
+                            <Typography variant="caption" color="text.secondary">
+                              {`${station.location.coordinates[1].toFixed(6)}, ${station.location.coordinates[0].toFixed(6)}`}
+                            </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Chip 
+                            label={station.status || 'Active'}
+                            size="small"
+                            color={station.status === 'Active' ? 'success' : 'default'}
+                            sx={{ 
+                              borderRadius: 1,
+                              textTransform: 'uppercase',
+                              fontWeight: 500,
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell align="right">
+                          <Tooltip title="Edit station">
+                            <IconButton 
+                              size="small" 
+                              onClick={() => handleEditClick(station)}
+                              sx={{ 
+                                color: theme.palette.primary.main,
+                                '&:hover': {
+                                  backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                                }
+                              }}
+                            >
+                              <EditIcon />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Delete station">
+                            <IconButton 
+                              size="small" 
+                              onClick={() => handleDeleteClick(station)}
+                              sx={{ 
+                                color: theme.palette.error.main,
+                                '&:hover': {
+                                  backgroundColor: alpha(theme.palette.error.main, 0.1),
+                                }
+                              }}
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </Tooltip>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </Grid>
         </Grid>
-      </Grid>
+      </Fade>
 
       {/* Add Station Dialog */}
       <AddStation

@@ -8,7 +8,8 @@ import {
   FormControl,
   InputLabel,
   Select,
-  FormHelperText
+  FormHelperText,
+  Typography
 } from '@mui/material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -18,8 +19,8 @@ const StationForm = ({ station, onSubmit, onCancel }) => {
   const [formData, setFormData] = useState({
     name: '',
     location: '',
-    openingTime: '',
-    closingTime: '',
+    openingTime: '08:00 AM',
+    closingTime: '08:00 PM',
     totalChargers: '',
     status: 'Active'
   });
@@ -31,8 +32,8 @@ const StationForm = ({ station, onSubmit, onCancel }) => {
       setFormData({
         name: station.name || '',
         location: station.location || '',
-        openingTime: station.openingTime || '',
-        closingTime: station.closingTime || '',
+        openingTime: '08:00 AM',
+        closingTime: '08:00 PM',
         totalChargers: station.totalChargers || '',
         status: station.status || 'Active'
       });
@@ -44,8 +45,6 @@ const StationForm = ({ station, onSubmit, onCancel }) => {
     
     if (!formData.name) newErrors.name = 'Name is required';
     if (!formData.location) newErrors.location = 'Location is required';
-    if (!formData.openingTime) newErrors.openingTime = 'Opening time is required';
-    if (!formData.closingTime) newErrors.closingTime = 'Closing time is required';
     if (!formData.totalChargers) newErrors.totalChargers = 'Number of chargers is required';
     else if (formData.totalChargers < 1) newErrors.totalChargers = 'Must have at least 1 charger';
     else if (formData.totalChargers > 50) newErrors.totalChargers = 'Maximum 50 chargers allowed';
@@ -114,41 +113,28 @@ const StationForm = ({ station, onSubmit, onCancel }) => {
             required
           />
         </Grid>
-        <Grid item xs={12} sm={6}>
-          <LocalizationProvider dateAdapter={AdapterDateFns}>
-            <TimePicker
-              label="Opening Time"
-              value={formData.openingTime ? new Date(`1970-01-01 ${formData.openingTime}`) : null}
-              onChange={(value) => handleTimeChange('openingTime', value)}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  fullWidth
-                  error={!!errors.openingTime}
-                  helperText={errors.openingTime}
-                  required
-                />
-              )}
-            />
-          </LocalizationProvider>
+        <Grid item xs={12}>
+          <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+            Operating Hours: 8:00 AM - 8:00 PM (Fixed)
+          </Typography>
         </Grid>
         <Grid item xs={12} sm={6}>
-          <LocalizationProvider dateAdapter={AdapterDateFns}>
-            <TimePicker
-              label="Closing Time"
-              value={formData.closingTime ? new Date(`1970-01-01 ${formData.closingTime}`) : null}
-              onChange={(value) => handleTimeChange('closingTime', value)}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  fullWidth
-                  error={!!errors.closingTime}
-                  helperText={errors.closingTime}
-                  required
-                />
-              )}
-            />
-          </LocalizationProvider>
+          <TextField
+            fullWidth
+            label="Opening Time"
+            value="08:00 AM"
+            disabled
+            helperText="Fixed operating hours"
+          />
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <TextField
+            fullWidth
+            label="Closing Time"
+            value="08:00 PM"
+            disabled
+            helperText="Fixed operating hours"
+          />
         </Grid>
         <Grid item xs={12} sm={6}>
           <TextField

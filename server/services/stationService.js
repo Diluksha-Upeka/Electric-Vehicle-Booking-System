@@ -1,4 +1,4 @@
-const Station = require('../models/Station');
+const ChargingStation = require('../models/ChargingStation');
 const TimeSlot = require('../models/TimeSlot');
 const Booking = require('../models/Booking');
 
@@ -6,10 +6,11 @@ class StationService {
   // Create a new station and generate time slots
   async createStation(stationData) {
     try {
-      // Validate opening and closing times
-      this.validateOperatingHours(stationData.openingTime, stationData.closingTime);
+      // Set fixed operating hours
+      stationData.openingTime = '08:00 AM';
+      stationData.closingTime = '08:00 PM';
       
-      const station = await Station.create(stationData);
+      const station = await ChargingStation.create(stationData);
       await this.generateTimeSlots(station);
       return station;
     } catch (error) {
@@ -20,7 +21,7 @@ class StationService {
   // Update a station
   async updateStation(stationId, updateData) {
     try {
-      const station = await Station.findById(stationId);
+      const station = await ChargingStation.findById(stationId);
       if (!station) {
         throw new Error('Station not found');
       }
@@ -45,12 +46,37 @@ class StationService {
         }
       }
 
+      // Check if time-related fields are being updated
+      const needsTimeSlotUpdate = 
+        updateData.openingTime !== undefined || 
+        updateData.closingTime !== undefined || 
+        updateData.numberOfConnectors !== undefined;
+
+      // If only numberOfConnectors is updated, update availableSpots in existing slots
+      if (updateData.numberOfConnectors !== undefined && 
+          !updateData.openingTime && 
+          !updateData.closingTime) {
+        const chargerDiff = updateData.numberOfConnectors - station.numberOfConnectors;
+        await TimeSlot.updateMany(
+          { 
+            station: stationId,
+            date: { $gte: new Date() } // Only update future slots
+          },
+          { 
+            $inc: { availableSpots: chargerDiff },
+            $set: { 
+              status: updateData.numberOfConnectors > 0 ? 'Available' : 'Booked'
+            }
+          }
+        );
+      }
+
       // Update station
       Object.assign(station, updateData);
       await station.save();
 
-      // If opening/closing times or total chargers changed, regenerate slots
-      if (updateData.openingTime || updateData.closingTime || updateData.totalChargers) {
+      // If opening/closing times changed, regenerate all slots
+      if (updateData.openingTime || updateData.closingTime) {
         await this.regenerateTimeSlots(station);
       }
 
@@ -62,22 +88,19 @@ class StationService {
 
   // Validate operating hours
   validateOperatingHours(openingTime, closingTime) {
-    const openTime = new Date(`1970-01-01 ${openingTime}`);
-    const closeTime = new Date(`1970-01-01 ${closingTime}`);
+    // Fixed operating hours: 8 AM to 8 PM
+    const fixedOpeningTime = '08:00 AM';
+    const fixedClosingTime = '08:00 PM';
 
-    if (isNaN(openTime.getTime()) || isNaN(closeTime.getTime())) {
-      throw new Error('Invalid time format. Use format: HH:mm AM/PM');
-    }
-
-    if (openTime >= closeTime) {
-      throw new Error('Opening time must be before closing time');
+    if (openingTime !== fixedOpeningTime || closingTime !== fixedClosingTime) {
+      throw new Error('Station operating hours are fixed from 8:00 AM to 8:00 PM');
     }
   }
 
   // Delete a station and its associated time slots
   async deleteStation(stationId) {
     try {
-      const station = await Station.findById(stationId);
+      const station = await ChargingStation.findById(stationId);
       if (!station) {
         throw new Error('Station not found');
       }
@@ -107,20 +130,27 @@ class StationService {
   async generateTimeSlots(station) {
     try {
       const slots = [];
-      const startTime = new Date(`1970-01-01 ${station.openingTime}`);
-      const endTime = new Date(`1970-01-01 ${station.closingTime}`);
       
-      let currentTime = new Date(startTime);
+      // Fixed operating hours: 8 AM to 8 PM
+      const startHour = 8;  // 8 AM
+      const endHour = 20;   // 8 PM
       
-      while (currentTime < endTime) {
-        const slotStartTime = currentTime.toLocaleTimeString('en-US', { 
+      // Create base date for time calculations
+      const baseDate = new Date();
+      baseDate.setHours(startHour, 0, 0, 0);
+      const endDate = new Date();
+      endDate.setHours(endHour, 0, 0, 0);
+      
+      // Generate hourly slots
+      while (baseDate < endDate) {
+        const slotStartTime = baseDate.toLocaleTimeString('en-US', { 
           hour: '2-digit', 
           minute: '2-digit',
           hour12: true 
         });
         
-        currentTime.setHours(currentTime.getHours() + 1);
-        const slotEndTime = currentTime.toLocaleTimeString('en-US', { 
+        baseDate.setHours(baseDate.getHours() + 1);
+        const slotEndTime = baseDate.toLocaleTimeString('en-US', { 
           hour: '2-digit', 
           minute: '2-digit',
           hour12: true 
@@ -130,21 +160,33 @@ class StationService {
         for (let i = 0; i < 30; i++) {
           const slotDate = new Date();
           slotDate.setDate(slotDate.getDate() + i);
+          slotDate.setHours(0, 0, 0, 0); // Reset time part to start of day
           
           slots.push({
             station: station._id,
             date: slotDate,
             startTime: slotStartTime,
             endTime: slotEndTime,
-            availableSpots: station.totalChargers,
+            availableSpots: station.numberOfConnectors,
             status: 'Available'
           });
         }
       }
 
-      await TimeSlot.insertMany(slots);
+      console.log(`Generating ${slots.length} slots for station ${station.name}`);
+
+      // Delete any existing slots for this station
+      await TimeSlot.deleteMany({ station: station._id });
+      
+      // Insert new slots
+      if (slots.length > 0) {
+        await TimeSlot.insertMany(slots);
+        console.log(`Successfully created ${slots.length} slots for station ${station.name}`);
+      }
+      
       return slots;
     } catch (error) {
+      console.error('Error generating time slots:', error);
       throw error;
     }
   }
@@ -168,7 +210,7 @@ class StationService {
       if (filters.status) {
         query.status = filters.status;
       }
-      return await Station.find(query).sort({ name: 1 });
+      return await ChargingStation.find(query).sort({ name: 1 });
     } catch (error) {
       throw error;
     }
@@ -177,7 +219,7 @@ class StationService {
   // Get station by ID with time slots
   async getStationById(stationId) {
     try {
-      const station = await Station.findById(stationId);
+      const station = await ChargingStation.findById(stationId);
       if (!station) {
         throw new Error('Station not found');
       }
@@ -197,7 +239,7 @@ class StationService {
   // Get station statistics
   async getStationStats(stationId) {
     try {
-      const station = await Station.findById(stationId);
+      const station = await ChargingStation.findById(stationId);
       if (!station) {
         throw new Error('Station not found');
       }

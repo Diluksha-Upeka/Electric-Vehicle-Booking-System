@@ -70,15 +70,21 @@ class BookingService {
       const [endHour, endMinute] = requestedSlot.endTime.split(':');
       requestedEnd.setHours(parseInt(endHour), parseInt(endMinute), 0);
 
-      // Find all confirmed bookings for the user
+      // Find all active bookings for the user (not cancelled or completed)
       const userBookings = await Booking.find({
         user: userId,
-        status: 'Confirmed'
+        status: { $in: ['Confirmed', 'Checked-in'] }
       }).populate('timeSlot');
 
       // Check for overlaps
       for (const booking of userBookings) {
         const existingSlot = booking.timeSlot;
+        
+        // Skip if the booking is for the exact same time slot (duplicate booking attempt)
+        if (existingSlot._id.toString() === timeSlotId.toString()) {
+          return true; // Prevent duplicate booking of the same slot
+        }
+
         const existingStart = new Date(existingSlot.date);
         const [existingStartHour, existingStartMinute] = existingSlot.startTime.split(':');
         existingStart.setHours(parseInt(existingStartHour), parseInt(existingStartMinute), 0);
@@ -101,6 +107,7 @@ class BookingService {
 
       return false; // No overlaps found
     } catch (error) {
+      console.error('Error checking overlapping bookings:', error);
       throw error;
     }
   }

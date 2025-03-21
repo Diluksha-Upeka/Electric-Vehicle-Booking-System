@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Container,
   Grid,
@@ -24,14 +24,33 @@ import {
   ListItemText,
   Divider,
   Chip,
-  MenuItem
+  MenuItem,
+  useTheme,
+  IconButton,
+  Tooltip
 } from '@mui/material';
-import { LocationOn, AccessTime, AttachMoney, BatteryChargingFull } from '@mui/icons-material';
+import { 
+  LocationOn, 
+  AccessTime, 
+  AttachMoney, 
+  BatteryChargingFull,
+  ElectricCar,
+  Map,
+  History,
+  Settings,
+  NavigateNext,
+  Refresh,
+  MyLocation
+} from '@mui/icons-material';
 import axios from 'axios';
 import { GoogleMap, LoadScript, Marker, InfoWindow } from '@react-google-maps/api';
 import BookingDialog from '../components/BookingDialog';
+import bookingService from '../services/bookingService';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 const UserDashboard = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState(0);
   const [stations, setStations] = useState([]);
   const [bookings, setBookings] = useState([]);
@@ -77,11 +96,59 @@ const UserDashboard = () => {
   const [bookingError, setBookingError] = useState('');
   const [checkInSuccess, setCheckInSuccess] = useState(false);
   const [checkInError, setCheckInError] = useState('');
+  const [mapLoaded, setMapLoaded] = useState(false);
+  const [scriptLoaded, setScriptLoaded] = useState(false);
+
+  // Custom styles
+  const theme = useTheme();
+  const cardStyle = {
+    height: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
+    '&:hover': {
+      transform: 'translateY(-4px)',
+      boxShadow: theme.shadows[4]
+    }
+  };
+
+  const mapContainerStyle = {
+    width: '100%',
+    height: '400px',
+    borderRadius: theme.shape.borderRadius,
+    overflow: 'hidden',
+    position: 'relative'
+  };
+
+  const loadingOverlayStyle = {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1
+  };
+
+  const customMarkerIcon = useMemo(() => ({
+    url: `${window.location.origin}/favicon.png`,
+    scaledSize: { width: 40, height: 40 },
+    anchor: { x: 20, y: 20 }
+  }), []);
 
   useEffect(() => {
     fetchData();
     getUserLocation();
-  }, []);
+    // Get tab from URL query parameters
+    const params = new URLSearchParams(location.search);
+    const tabParam = params.get('tab');
+    if (tabParam !== null) {
+      setActiveTab(parseInt(tabParam));
+    }
+  }, [location.search]);
 
   useEffect(() => {
     if (userLocation && stations.length > 0) {
@@ -101,7 +168,7 @@ const UserDashboard = () => {
       ]);
 
       setStations(stationsResponse.data);
-      setBookings(bookingsResponse.data);
+      setBookings(filterActiveBookings(bookingsResponse.data));
       setProfileData(profileResponse.data);
       setLoading(false);
     } catch (error) {
@@ -162,6 +229,8 @@ const UserDashboard = () => {
 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
+    // Update URL with new tab value
+    navigate(`/user-dashboard?tab=${newValue}`, { replace: true });
   };
 
   const handleBookingClick = (station) => {
@@ -381,6 +450,23 @@ const UserDashboard = () => {
     }
   };
 
+  const filterActiveBookings = (bookings) => {
+    return bookings.filter(booking => booking.status !== 'Cancelled');
+  };
+
+  const handleCancelBooking = async (bookingId) => {
+    try {
+      await bookingService.cancelBooking(bookingId);
+      // Update the bookings list by removing the cancelled booking
+      setBookings(prevBookings => prevBookings.filter(booking => booking._id !== bookingId));
+      setBookingSuccess(true);
+      setTimeout(() => setBookingSuccess(false), 3000);
+    } catch (error) {
+      setBookingError(error.response?.data?.message || 'Error cancelling booking');
+      setTimeout(() => setBookingError(''), 3000);
+    }
+  };
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
@@ -390,82 +476,98 @@ const UserDashboard = () => {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Grid container spacing={3}>
-        {/* Welcome Section */}
-        <Grid item xs={12}>
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h4" gutterBottom>
-              Welcome, {profileData.firstName}!
-            </Typography>
-            <Typography variant="subtitle1" color="text.secondary">
-              Manage your bookings and profile
-            </Typography>
-          </Paper>
-        </Grid>
+    <Container maxWidth="xl" sx={{ 
+      py: 4,
+      mt: '64px',
+      minHeight: 'calc(100vh - 64px)',
+    }}>
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h4" component="h1" gutterBottom sx={{ fontWeight: 600 }}>
+          Welcome to Your EV Charging Dashboard
+        </Typography>
+        <Tabs
+          value={activeTab}
+          onChange={handleTabChange}
+          variant="scrollable"
+          scrollButtons="auto"
+          sx={{
+            mb: 3,
+            borderBottom: 1,
+            borderColor: 'divider',
+            '& .MuiTab-root': {
+              minWidth: 120,
+              fontWeight: 500
+            }
+          }}
+        >
+          <Tab 
+            icon={<Map />} 
+            label="Find Stations" 
+            iconPosition="start"
+          />
+          <Tab 
+            icon={<History />} 
+            label="My Bookings" 
+            iconPosition="start"
+          />
+          <Tab 
+            icon={<Settings />} 
+            label="Profile" 
+            iconPosition="start"
+          />
+        </Tabs>
+      </Box>
 
-        {/* Tabs */}
-        <Grid item xs={12}>
-          <Paper>
-            <Tabs value={activeTab} onChange={handleTabChange}>
-              <Tab label="Stations" />
-              <Tab label="My Bookings" />
-              <Tab label="Profile" />
-            </Tabs>
-          </Paper>
-        </Grid>
-
-        {/* Content */}
-        <Grid item xs={12}>
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
-
-          {activeTab === 0 ? (
-            // Stations View
+      {loading ? (
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
+          <CircularProgress />
+        </Box>
+      ) : error ? (
+        <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>
+      ) : (
+        <Box>
+          {/* Find Stations Tab */}
+          {activeTab === 0 && (
             <Grid container spacing={3}>
-              {/* Map Options */}
-              <Grid item xs={12}>
-                <Paper sx={{ p: 2, mb: 2 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Typography>Show stations within:</Typography>
-                    <TextField
-                      select
-                      label="Radius (km)"
-                      value={radius}
-                      onChange={handleRadiusChange}
-                      sx={{ width: 120 }}
-                    >
-                      <MenuItem value={5}>5 km</MenuItem>
-                      <MenuItem value={10}>10 km</MenuItem>
-                      <MenuItem value={20}>20 km</MenuItem>
-                      <MenuItem value={50}>50 km</MenuItem>
-                      <MenuItem value={100}>100 km</MenuItem>
-                      <MenuItem value={500}>All</MenuItem>
-                    </TextField>
-                    <Typography>
-                      {userLocation ? `${nearbyStations.length} stations found` : 'Getting your location...'}
+              <Grid item xs={12} md={8}>
+                <Paper 
+                  elevation={0} 
+                  sx={{ 
+                    p: 2, 
+                    borderRadius: 2,
+                    border: 1,
+                    borderColor: 'divider'
+                  }}
+                >
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                      Nearby Charging Stations
                     </Typography>
-                  </Box>
-                </Paper>
-              </Grid>
-              
-              {/* Map Section */}
-              <Grid item xs={12}>
-                <Paper sx={{ height: 400, mb: 3, position: 'relative' }}>
-                  {mapError ? (
-                    <Box display="flex" justifyContent="center" alignItems="center" height="100%">
-                      <Typography color="error">{mapError}</Typography>
+                    <Box>
+                      <Tooltip title="Use my location">
+                        <IconButton onClick={getUserLocation} size="small" sx={{ mr: 1 }}>
+                          <MyLocation />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Refresh stations">
+                        <IconButton onClick={fetchData} size="small">
+                          <Refresh />
+                        </IconButton>
+                      </Tooltip>
                     </Box>
-                  ) : (
+                  </Box>
+                  <Box sx={mapContainerStyle}>
+                    {(!scriptLoaded || !mapLoaded) && (
+                      <Box sx={loadingOverlayStyle}>
+                        <CircularProgress />
+                      </Box>
+                    )}
                     <LoadScript 
                       googleMapsApiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY}
-                      onLoad={() => setMapLoading(false)}
-                      onError={() => {
-                        setMapError('Failed to load Google Maps. Please check your API key.');
-                        setMapLoading(false);
+                      onLoad={() => setScriptLoaded(true)}
+                      onError={(error) => {
+                        console.error('Error loading Google Maps script:', error);
+                        setMapError('Failed to load Google Maps');
                       }}
                     >
                       <GoogleMap
@@ -473,253 +575,324 @@ const UserDashboard = () => {
                         center={mapCenter}
                         zoom={12}
                         options={{
-                          zoomControl: true,
-                          streetViewControl: false,
-                          mapTypeControl: false,
-                          fullscreenControl: false
+                          fullscreenControl: false,
+                          streetViewControl: false
+                        }}
+                        onLoad={() => setMapLoaded(true)}
+                        onError={(error) => {
+                          console.error('Error loading Google Map:', error);
+                          setMapError('Failed to load map');
                         }}
                       >
-                        {/* User Location Marker */}
-                        {userLocation && (
-                          <Marker
-                            position={userLocation}
-                            icon={{
-                              url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
-                              scaledSize: { width: 40, height: 40 },
-                              anchor: { x: 20, y: 20 }
-                            }}
-                            title="Your Location"
-                          />
-                        )}
+                        {scriptLoaded && mapLoaded && !mapError && (
+                          <>
+                            {/* User Location Marker */}
+                            {userLocation && (
+                              <Marker
+                                position={userLocation}
+                                icon={{
+                                  url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+                                  scaledSize: { width: 40, height: 40 },
+                                  anchor: { x: 20, y: 20 }
+                                }}
+                                title="Your Location"
+                              />
+                            )}
 
-                        {/* Station Markers */}
-                        {(userLocation ? nearbyStations : stations).map((station) => (
-                          <Marker
-                            key={station._id}
-                            position={{
-                              lat: station.location.coordinates[1],
-                              lng: station.location.coordinates[0]
-                            }}
-                            onClick={() => {
-                              handleMarkerClick(station);
-                            }}
-                            title={station.name}
-                            icon={{
-                              url: markerError ? 'http://maps.google.com/mapfiles/ms/icons/red-dot.png' : '/charging-station-icon.png',
-                              scaledSize: { width: 40, height: 40 },
-                              anchor: { x: 20, y: 20 },
-                              labelOrigin: { x: 20, y: -10 }
-                            }}
-                            onLoad={() => {
-                              // Check if the custom icon loaded successfully
-                              const img = new Image();
-                              img.onerror = () => setMarkerError(true);
-                              img.src = '/charging-station-icon.png';
-                            }}
-                          />
-                        ))}
+                            {/* Station Markers */}
+                            {(userLocation ? nearbyStations : stations).map((station) => (
+                              <Marker
+                                key={station._id}
+                                position={{
+                                  lat: station.location.coordinates[1],
+                                  lng: station.location.coordinates[0]
+                                }}
+                                onClick={() => {
+                                  handleMarkerClick(station);
+                                }}
+                                title={station.name}
+                                icon={{
+                                  url: `${window.location.origin}/favicon.png`,
+                                  scaledSize: { width: 40, height: 40 },
+                                  anchor: { x: 20, y: 20 }
+                                }}
+                              />
+                            ))}
 
-                        {/* InfoWindow */}
-                        {selectedMarker && (
-                          <InfoWindow
-                            position={{
-                              lat: selectedMarker.location.coordinates[1],
-                              lng: selectedMarker.location.coordinates[0]
-                            }}
-                            onCloseClick={handleInfoWindowClose}
-                          >
-                            <div>
-                              <Typography variant="subtitle2">{selectedMarker.name}</Typography>
-                              <Typography variant="body2">
-                                {selectedMarker.numberOfConnectors} connectors available
-                              </Typography>
-                              <Typography variant="body2">
-                                {selectedMarker.ratePerHour} LKR/hour
-                              </Typography>
-                              <Button 
-                                size="small" 
-                                variant="contained" 
-                                onClick={() => handleBookingClick(selectedMarker)}
-                                sx={{ mt: 1 }}
+                            {/* InfoWindow */}
+                            {selectedMarker && (
+                              <InfoWindow
+                                position={{
+                                  lat: selectedMarker.location.coordinates[1],
+                                  lng: selectedMarker.location.coordinates[0]
+                                }}
+                                onCloseClick={handleInfoWindowClose}
                               >
-                                Book Now
-                              </Button>
-                            </div>
-                          </InfoWindow>
+                                <div>
+                                  <Typography variant="subtitle2">{selectedMarker.name}</Typography>
+                                  <Typography variant="body2">
+                                    {selectedMarker.numberOfConnectors} connectors available
+                                  </Typography>
+                                  <Typography variant="body2">
+                                    {selectedMarker.ratePerHour} LKR/hour
+                                  </Typography>
+                                  <Button 
+                                    size="small" 
+                                    variant="contained" 
+                                    onClick={() => handleBookingClick(selectedMarker)}
+                                    sx={{ mt: 1 }}
+                                  >
+                                    Book Now
+                                  </Button>
+                                </div>
+                              </InfoWindow>
+                            )}
+                          </>
                         )}
                       </GoogleMap>
                     </LoadScript>
-                  )}
-                  {mapLoading && (
-                    <Box 
-                      position="absolute" 
-                      top="50%" 
-                      left="50%" 
-                      sx={{ transform: 'translate(-50%, -50%)' }}
-                      zIndex={1}
-                    >
-                      <CircularProgress />
-                    </Box>
-                  )}
+                  </Box>
                 </Paper>
               </Grid>
-
-              {/* Stations List */}
-              <Grid item xs={12}>
-                <Typography variant="h6" gutterBottom>
-                  Available Charging Stations
-                </Typography>
-              </Grid>
-              
-              {(userLocation ? nearbyStations : stations).map((station) => (
-                <Grid item xs={12} md={6} key={station._id}>
-                  <Card>
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom>
-                        {station.name}
-                      </Typography>
-                      <Typography color="text.secondary" gutterBottom>
-                        {station.description}
-                      </Typography>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <LocationOn fontSize="small" />
-                        <Typography variant="body2">
-                          {userLocation ? `${calculateDistance(
-                            userLocation.lat,
-                            userLocation.lng,
-                            station.location.coordinates[1],
-                            station.location.coordinates[0]
-                          ).toFixed(1)} km away` : 'Distance unavailable'}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <BatteryChargingFull fontSize="small" />
-                        <Typography variant="body2">
-                          {station.numberOfConnectors} Connectors Available
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <AttachMoney fontSize="small" />
-                        <Typography variant="body2">
-                          {station.ratePerHour} LKR/hour
-                        </Typography>
-                      </Box>
-                    </CardContent>
-                    <CardActions>
-                      <Button
-                        size="small"
-                        variant="contained"
-                        onClick={() => handleBookingClick(station)}
-                      >
-                        Book Now
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        onClick={() => {
-                          setSelectedMarker(station);
-                          setMapCenter({
-                            lat: station.location.coordinates[1],
-                            lng: station.location.coordinates[0]
-                          });
+              <Grid item xs={12} md={4}>
+                <Paper 
+                  elevation={0}
+                  sx={{ 
+                    p: 2, 
+                    borderRadius: 2,
+                    border: 1,
+                    borderColor: 'divider',
+                    height: '100%'
+                  }}
+                >
+                  <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+                    Available Stations
+                  </Typography>
+                  <Box sx={{ maxHeight: 'calc(400px - 64px)', overflowY: 'auto' }}>
+                    {nearbyStations.map((station) => (
+                      <Card 
+                        key={station._id} 
+                        sx={{
+                          mb: 2,
+                          borderRadius: 2,
+                          ...cardStyle
                         }}
                       >
-                        View on Map
-                      </Button>
-                    </CardActions>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
-          ) : activeTab === 1 ? (
-            // Bookings View
-            <List>
-              {bookings.length === 0 ? (
-                <Paper sx={{ p: 3, textAlign: 'center' }}>
-                  <Typography variant="h6">No bookings found</Typography>
-                  <Typography variant="body1" color="text.secondary">
-                    You haven't made any bookings yet.
-                  </Typography>
-                  <Button 
-                    variant="contained" 
-                    sx={{ mt: 2 }}
-                    onClick={() => setActiveTab(0)}
-                  >
-                    Book a Station
-                  </Button>
+                        <CardContent>
+                          <Typography variant="h6" gutterBottom>
+                            {station.name}
+                          </Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                            <LocationOn sx={{ mr: 1, color: 'primary.main' }} />
+                            <Typography variant="body2" color="text.secondary">
+                              {station.location.address || 'Location not available'}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            <BatteryChargingFull sx={{ mr: 1, color: 'success.main' }} />
+                            <Typography variant="body2" color="text.secondary">
+                              {station.numberOfConnectors} Connectors Available
+                            </Typography>
+                          </Box>
+                        </CardContent>
+                        <CardActions sx={{ mt: 'auto' }}>
+                          <Button 
+                            variant="contained" 
+                            fullWidth
+                            endIcon={<NavigateNext />}
+                            onClick={() => handleBookingClick(station)}
+                          >
+                            Book Now
+                          </Button>
+                        </CardActions>
+                      </Card>
+                    ))}
+                  </Box>
                 </Paper>
-              ) : (
-                bookings.map((booking) => (
-                  <React.Fragment key={booking._id}>
-                    <ListItem>
-                      <ListItemText
-                        primary={`Booking at ${booking.station.name}`}
-                        secondary={
-                          <>
-                            <Typography component="span" variant="body2">
-                              {new Date(booking.startTime).toLocaleString()} - {new Date(booking.endTime).toLocaleString()}
-                            </Typography>
-                            <br />
-                            <Typography component="span" variant="body2">
-                              Status: <Chip label={booking.status} size="small" color={
-                                booking.status === 'Completed' ? 'success' :
-                                booking.status === 'Cancelled' ? 'error' :
-                                booking.status === 'Checked-in' ? 'primary' :
-                                booking.status === 'Confirmed' ? 'info' : 'default'
-                              } />
-                            </Typography>
-                          </>
-                        }
-                      />
-                      {booking.status === 'Confirmed' && (
-                        <Button
-                          variant="contained"
-                          color="primary"
-                          size="small"
-                          onClick={() => handleCheckIn(booking._id)}
+              </Grid>
+            </Grid>
+          )}
+
+          {/* My Bookings Tab */}
+          {activeTab === 1 && (
+            <Grid container spacing={3}>
+              <Grid item xs={12}>
+                <Paper 
+                  elevation={0}
+                  sx={{ 
+                    p: 3, 
+                    borderRadius: 2,
+                    border: 1,
+                    borderColor: 'divider'
+                  }}
+                >
+                  <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>
+                    Your Bookings
+                  </Typography>
+                  <Grid container spacing={3}>
+                    {bookings.map((booking) => (
+                      <Grid item xs={12} md={6} lg={4} key={booking._id}>
+                        <Card 
+                          sx={{
+                            borderRadius: 2,
+                            ...cardStyle
+                          }}
                         >
-                          Check In
-                        </Button>
-                      )}
-                    </ListItem>
-                    <Divider />
-                  </React.Fragment>
-                ))
-              )}
-            </List>
-          ) : (
-            // Profile View
-            <Paper sx={{ p: 3 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-                <Typography variant="h6">Profile Information</Typography>
-                <Button variant="contained" onClick={() => setProfileDialogOpen(true)}>
-                  Edit Profile
-                </Button>
-              </Box>
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="subtitle1" gutterBottom>
+                          <CardContent>
+                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                              <ElectricCar sx={{ mr: 1, color: 'primary.main' }} />
+                              <Typography variant="h6">
+                                {booking.station.name}
+                              </Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                <AccessTime sx={{ mr: 1, color: 'info.main' }} />
+                                <Typography variant="body2">
+                                  {new Date(booking.timeSlot.date).toLocaleDateString()} at {booking.timeSlot.startTime}
+                                </Typography>
+                              </Box>
+                              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                <LocationOn sx={{ mr: 1, color: 'error.main' }} />
+                                <Typography variant="body2">
+                                  {booking.station.location.address || 'Location not available'}
+                                </Typography>
+                              </Box>
+                              <Chip 
+                                label={booking.status}
+                                color={
+                                  booking.status === 'CONFIRMED' ? 'success' :
+                                  booking.status === 'PENDING' ? 'warning' :
+                                  'error'
+                                }
+                                size="small"
+                                sx={{ alignSelf: 'flex-start', mt: 1 }}
+                              />
+                            </Box>
+                          </CardContent>
+                          <CardActions>
+                            <Button 
+                              color="error" 
+                              onClick={() => handleCancelBooking(booking._id)}
+                              disabled={booking.status === 'CANCELLED'}
+                            >
+                              Cancel Booking
+                            </Button>
+                          </CardActions>
+                        </Card>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Paper>
+              </Grid>
+            </Grid>
+          )}
+
+          {/* Profile Tab */}
+          {activeTab === 2 && (
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={6}>
+                <Paper 
+                  elevation={0}
+                  sx={{ 
+                    p: 3, 
+                    borderRadius: 2,
+                    border: 1,
+                    borderColor: 'divider'
+                  }}
+                >
+                  <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>
                     Personal Information
                   </Typography>
-                  <Typography>Name: {profileData.firstName} {profileData.lastName}</Typography>
-                  <Typography>Email: {profileData.email}</Typography>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="subtitle1" gutterBottom>
-                    Vehicle Details
-                  </Typography>
-                  <Typography>
-                    {profileData.vehicleDetails?.make} {profileData.vehicleDetails?.model} ({profileData.vehicleDetails?.year})
-                  </Typography>
-                  <Typography>
-                    Battery Capacity: {profileData.vehicleDetails?.batteryCapacity} kWh
-                  </Typography>
-                </Grid>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        label="First Name"
+                        value={profileData.firstName}
+                        onChange={(e) => handleProfileChange('firstName', e.target.value)}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        label="Last Name"
+                        value={profileData.lastName}
+                        onChange={(e) => handleProfileChange('lastName', e.target.value)}
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <TextField
+                        fullWidth
+                        label="Email"
+                        value={profileData.email}
+                        disabled
+                      />
+                    </Grid>
+                  </Grid>
+                </Paper>
               </Grid>
-            </Paper>
+              <Grid item xs={12} md={6}>
+                <Paper 
+                  elevation={0}
+                  sx={{ 
+                    p: 3, 
+                    borderRadius: 2,
+                    border: 1,
+                    borderColor: 'divider'
+                  }}
+                >
+                  <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>
+                    Vehicle Information
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        label="Vehicle Make"
+                        value={profileData.vehicleDetails?.make || ''}
+                        onChange={(e) => handleProfileChange('vehicleDetails.make', e.target.value)}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        label="Vehicle Model"
+                        value={profileData.vehicleDetails?.model || ''}
+                        onChange={(e) => handleProfileChange('vehicleDetails.model', e.target.value)}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        label="Year"
+                        value={profileData.vehicleDetails?.year || ''}
+                        onChange={(e) => handleProfileChange('vehicleDetails.year', e.target.value)}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        label="Battery Capacity (kWh)"
+                        value={profileData.vehicleDetails?.batteryCapacity || ''}
+                        onChange={(e) => handleProfileChange('vehicleDetails.batteryCapacity', e.target.value)}
+                      />
+                    </Grid>
+                  </Grid>
+                  <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
+                    <Button
+                      variant="contained"
+                      onClick={handleProfileUpdate}
+                    >
+                      Save Changes
+                    </Button>
+                  </Box>
+                </Paper>
+              </Grid>
+            </Grid>
           )}
-        </Grid>
-      </Grid>
+        </Box>
+      )}
 
       {/* Booking Dialog */}
       <BookingDialog

@@ -34,11 +34,10 @@ router.post('/register', async (req, res) => {
 
     // Create new user with default 'user' role
     user = new User({
-      firstName,
-      lastName,
+      name: `${firstName} ${lastName}`,
       email,
       password: hashedPassword,
-      role: 'user' // Always set to 'user' by default
+      role: 'USER' // Changed to uppercase to match enum
     });
 
     await user.save();
