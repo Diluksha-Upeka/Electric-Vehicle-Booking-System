@@ -28,6 +28,7 @@ app.use('/api/auth', require('./routes/auth').router);
 app.use('/api/stations', require('./routes/stations'));
 app.use('/api/bookings', require('./routes/bookings'));
 app.use('/api/users', require('./routes/users'));
+app.use('/api/admin', require('./routes/adminRoutes'));
 
 // Socket.io connection handling
 io.on('connection', (socket) => {

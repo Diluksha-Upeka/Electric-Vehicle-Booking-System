@@ -29,6 +29,7 @@ import {
 import { LocationOn, AccessTime, AttachMoney, BatteryChargingFull } from '@mui/icons-material';
 import axios from 'axios';
 import { GoogleMap, LoadScript, Marker, InfoWindow } from '@react-google-maps/api';
+import BookingDialog from '../components/BookingDialog';
 
 const UserDashboard = () => {
   const [activeTab, setActiveTab] = useState(0);
@@ -72,6 +73,10 @@ const UserDashboard = () => {
   const [selectedMarker, setSelectedMarker] = useState(null);
   const [nearbyStations, setNearbyStations] = useState([]);
   const [radius, setRadius] = useState(10); // Default radius in km
+  const [bookingSuccess, setBookingSuccess] = useState(false);
+  const [bookingError, setBookingError] = useState('');
+  const [checkInSuccess, setCheckInSuccess] = useState(false);
+  const [checkInError, setCheckInError] = useState('');
 
   useEffect(() => {
     fetchData();
@@ -342,6 +347,38 @@ const UserDashboard = () => {
 
   const handleInfoWindowClose = () => {
     setSelectedMarker(null);
+  };
+
+  const handleBookingSuccess = (booking) => {
+    setBookingSuccess(true);
+    fetchData(); // Refresh bookings list
+    setTimeout(() => setBookingSuccess(false), 5000);
+  };
+
+  const handleBookingError = (error) => {
+    setBookingError(error);
+    setTimeout(() => setBookingError(''), 5000);
+  };
+
+  const handleCheckIn = async (bookingId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const headers = { Authorization: `Bearer ${token}` };
+      
+      await axios.post(
+        `${process.env.REACT_APP_API_URL}/api/bookings/${bookingId}/check-in`,
+        {},
+        { headers }
+      );
+      
+      setCheckInSuccess(true);
+      fetchData(); // Refresh bookings list
+      setTimeout(() => setCheckInSuccess(false), 5000);
+    } catch (error) {
+      console.error('Error checking in:', error);
+      setCheckInError(error.response?.data?.message || 'Failed to check in');
+      setTimeout(() => setCheckInError(''), 5000);
+    }
   };
 
   if (loading) {
@@ -627,12 +664,23 @@ const UserDashboard = () => {
                               Status: <Chip label={booking.status} size="small" color={
                                 booking.status === 'Completed' ? 'success' :
                                 booking.status === 'Cancelled' ? 'error' :
-                                booking.status === 'Active' ? 'primary' : 'default'
+                                booking.status === 'Checked-in' ? 'primary' :
+                                booking.status === 'Confirmed' ? 'info' : 'default'
                               } />
                             </Typography>
                           </>
                         }
                       />
+                      {booking.status === 'Confirmed' && (
+                        <Button
+                          variant="contained"
+                          color="primary"
+                          size="small"
+                          onClick={() => handleCheckIn(booking._id)}
+                        >
+                          Check In
+                        </Button>
+                      )}
                     </ListItem>
                     <Divider />
                   </React.Fragment>
@@ -674,73 +722,36 @@ const UserDashboard = () => {
       </Grid>
 
       {/* Booking Dialog */}
-      <Dialog open={bookingDialogOpen} onClose={() => setBookingDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Book Charging Station</DialogTitle>
-        <DialogContent>
-          {selectedStation && (
-            <DialogContentText>
-              Book a charging session at {selectedStation.name}
-            </DialogContentText>
-          )}
-          <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <TextField
-              label="Start Time"
-              type="datetime-local"
-              name="startTime"
-              value={bookingData.startTime}
-              onChange={handleBookingChange}
-              fullWidth
-              InputLabelProps={{ shrink: true }}
-            />
-            <TextField
-              label="End Time"
-              type="datetime-local"
-              name="endTime"
-              value={bookingData.endTime}
-              onChange={handleBookingChange}
-              fullWidth
-              InputLabelProps={{ shrink: true }}
-            />
-            <TextField
-              select
-              label="Connector Type"
-              name="connector"
-              value={bookingData.connector}
-              onChange={handleBookingChange}
-              fullWidth
-            >
-              <MenuItem value="Type 1">Type 1</MenuItem>
-              <MenuItem value="Type 2">Type 2</MenuItem>
-              <MenuItem value="CCS">CCS</MenuItem>
-              <MenuItem value="CHAdeMO">CHAdeMO</MenuItem>
-            </TextField>
-            <TextField
-              label="Current Battery Percentage"
-              type="number"
-              name="batteryDetails.initialPercentage"
-              value={bookingData.batteryDetails.initialPercentage}
-              onChange={handleBookingChange}
-              fullWidth
-              inputProps={{ min: 0, max: 100 }}
-            />
-            <TextField
-              label="Target Battery Percentage"
-              type="number"
-              name="batteryDetails.targetPercentage"
-              value={bookingData.batteryDetails.targetPercentage}
-              onChange={handleBookingChange}
-              fullWidth
-              inputProps={{ min: 0, max: 100 }}
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setBookingDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleBookingSubmit} variant="contained">
-            Book Now
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <BookingDialog
+        open={bookingDialogOpen}
+        onClose={() => setBookingDialogOpen(false)}
+        station={selectedStation}
+        onBookingSuccess={handleBookingSuccess}
+      />
+
+      {bookingSuccess && (
+        <Alert severity="success" sx={{ position: 'fixed', bottom: 16, right: 16 }}>
+          Booking confirmed successfully!
+        </Alert>
+      )}
+
+      {bookingError && (
+        <Alert severity="error" sx={{ position: 'fixed', bottom: 16, right: 16 }}>
+          {bookingError}
+        </Alert>
+      )}
+
+      {checkInSuccess && (
+        <Alert severity="success" sx={{ position: 'fixed', bottom: 16, right: 16 }}>
+          Check-in successful!
+        </Alert>
+      )}
+
+      {checkInError && (
+        <Alert severity="error" sx={{ position: 'fixed', bottom: 16, right: 16 }}>
+          {checkInError}
+        </Alert>
+      )}
 
       {/* Profile Edit Dialog */}
       <Dialog open={profileDialogOpen} onClose={() => setProfileDialogOpen(false)} maxWidth="sm" fullWidth>

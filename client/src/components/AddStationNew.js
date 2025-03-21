@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -15,9 +15,14 @@ import {
   Chip,
   FormHelperText,
   Switch,
-  FormControlLabel
+  FormControlLabel,
+  Typography,
+  CircularProgress
 } from '@mui/material';
-import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
+import { GoogleMap, LoadScript, Marker, useJsApiLoader } from '@react-google-maps/api';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { TimePicker } from '@mui/x-date-pickers/TimePicker';
 
 const containerStyle = {
   width: '100%',
@@ -54,35 +59,76 @@ const AddStation = ({ open, onClose, onAdd }) => {
     },
     connectors: [{ type: 'Type 2', powerOutput: 7, count: 1 }],
     maxPowerOutput: 0,
-    totalConnectors: 1,
+    totalChargers: 1,
     pricing: {
       baseRate: 0,
       energyRate: 0,
       minimumCharge: 0
     },
     amenities: [],
+    openingTime: '09:00 AM',
+    closingTime: '06:00 PM',
     availability: {
-      isOpen24Hours: true,
+      isOpen24Hours: false,
       operatingHours: {
-        monday: { open: '00:00', close: '23:59' },
-        tuesday: { open: '00:00', close: '23:59' },
-        wednesday: { open: '00:00', close: '23:59' },
-        thursday: { open: '00:00', close: '23:59' },
-        friday: { open: '00:00', close: '23:59' },
-        saturday: { open: '00:00', close: '23:59' },
-        sunday: { open: '00:00', close: '23:59' }
+        monday: { open: '09:00 AM', close: '06:00 PM' },
+        tuesday: { open: '09:00 AM', close: '06:00 PM' },
+        wednesday: { open: '09:00 AM', close: '06:00 PM' },
+        thursday: { open: '09:00 AM', close: '06:00 PM' },
+        friday: { open: '09:00 AM', close: '06:00 PM' },
+        saturday: { open: '09:00 AM', close: '06:00 PM' },
+        sunday: { open: '09:00 AM', close: '06:00 PM' }
       }
     },
     location: {
       type: 'Point',
       coordinates: [0, 0]
     },
-    status: 'active'
+    status: 'Active'
   });
 
+  const [errors, setErrors] = useState({});
   const [map, setMap] = useState(null);
   const [marker, setMarker] = useState(null);
   const [selectedAmenities, setSelectedAmenities] = useState([]);
+  const [mapError, setMapError] = useState(null);
+
+  const { isLoaded, loadError } = useJsApiLoader({
+    googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY,
+    libraries: ['places']
+  });
+
+  const validateForm = () => {
+    const newErrors = {};
+    
+    if (!formData.name) newErrors.name = 'Name is required';
+    if (!formData.description) newErrors.description = 'Description is required';
+    if (!formData.openingTime) newErrors.openingTime = 'Opening time is required';
+    if (!formData.closingTime) newErrors.closingTime = 'Closing time is required';
+    if (!formData.totalChargers) newErrors.totalChargers = 'Number of chargers is required';
+    else if (formData.totalChargers < 1) newErrors.totalChargers = 'Must have at least 1 charger';
+    else if (formData.totalChargers > 50) newErrors.totalChargers = 'Maximum 50 chargers allowed';
+
+    // Validate time format and range
+    if (formData.openingTime && formData.closingTime) {
+      const openTime = new Date(`1970-01-01 ${formData.openingTime}`);
+      const closeTime = new Date(`1970-01-01 ${formData.closingTime}`);
+      if (openTime >= closeTime) {
+        newErrors.openingTime = 'Opening time must be before closing time';
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const onLoad = useCallback((map) => {
+    setMap(map);
+  }, []);
+
+  const onUnmount = useCallback(() => {
+    setMap(null);
+  }, []);
 
   const handleMapClick = (event) => {
     const lat = event.latLng.lat();
@@ -114,39 +160,95 @@ const AddStation = ({ open, onClose, onAdd }) => {
         [name]: value
       }));
     }
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
   };
 
-  const handleAmenityChange = (event) => {
-    setSelectedAmenities(event.target.value);
-    setFormData(prev => ({
-      ...prev,
-      amenities: event.target.value
-    }));
+  const handleTimeChange = (name, value) => {
+    if (value) {
+      const formattedTime = value.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+      setFormData(prev => ({
+        ...prev,
+        [name]: formattedTime,
+        availability: {
+          ...prev.availability,
+          operatingHours: Object.fromEntries(
+            Object.entries(prev.availability.operatingHours).map(([day]) => [
+              day,
+              { open: name === 'openingTime' ? formattedTime : prev.openingTime,
+                close: name === 'closingTime' ? formattedTime : prev.closingTime }
+            ])
+          )
+        }
+      }));
+    }
   };
 
   const handle24HoursChange = (event) => {
     const isOpen24Hours = event.target.checked;
     setFormData(prev => ({
       ...prev,
+      openingTime: isOpen24Hours ? '12:00 AM' : '09:00 AM',
+      closingTime: isOpen24Hours ? '11:59 PM' : '06:00 PM',
       availability: {
+        ...prev.availability,
         isOpen24Hours,
-        operatingHours: isOpen24Hours ? {
-          monday: { open: '00:00', close: '23:59' },
-          tuesday: { open: '00:00', close: '23:59' },
-          wednesday: { open: '00:00', close: '23:59' },
-          thursday: { open: '00:00', close: '23:59' },
-          friday: { open: '00:00', close: '23:59' },
-          saturday: { open: '00:00', close: '23:59' },
-          sunday: { open: '00:00', close: '23:59' }
-        } : prev.availability.operatingHours
+        operatingHours: Object.fromEntries(
+          Object.entries(prev.availability.operatingHours).map(([day]) => [
+            day,
+            { open: isOpen24Hours ? '12:00 AM' : '09:00 AM',
+              close: isOpen24Hours ? '11:59 PM' : '06:00 PM' }
+          ])
+        )
       }
     }));
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onAdd(formData);
-    onClose();
+    if (validateForm()) {
+      onAdd(formData);
+      onClose();
+    }
+  };
+
+  const renderMap = () => {
+    if (loadError) {
+      return (
+        <Box sx={{ height: 400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Typography color="error">
+            Error loading Google Maps. Please check your API key and try again.
+          </Typography>
+        </Box>
+      );
+    }
+
+    if (!isLoaded) {
+      return (
+        <Box sx={{ height: 400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <CircularProgress />
+        </Box>
+      );
+    }
+
+    return (
+      <GoogleMap
+        mapContainerStyle={containerStyle}
+        center={{ lat: 6.9271, lng: 79.8612 }}
+        zoom={10}
+        onClick={handleMapClick}
+        onLoad={onLoad}
+        onUnmount={onUnmount}
+      >
+        {marker && <Marker position={marker} />}
+      </GoogleMap>
+    );
   };
 
   return (
@@ -162,6 +264,8 @@ const AddStation = ({ open, onClose, onAdd }) => {
                 name="name"
                 value={formData.name}
                 onChange={handleInputChange}
+                error={!!errors.name}
+                helperText={errors.name}
                 required
               />
             </Grid>
@@ -173,6 +277,8 @@ const AddStation = ({ open, onClose, onAdd }) => {
                 name="description"
                 value={formData.description}
                 onChange={handleInputChange}
+                error={!!errors.description}
+                helperText={errors.description}
                 multiline
                 rows={3}
                 required
@@ -180,16 +286,75 @@ const AddStation = ({ open, onClose, onAdd }) => {
             </Grid>
 
             <Grid item xs={12}>
-              <LoadScript googleMapsApiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY}>
-                <GoogleMap
-                  mapContainerStyle={containerStyle}
-                  center={{ lat: 6.9271, lng: 79.8612 }} // Default to Sri Lanka
-                  zoom={10}
-                  onClick={handleMapClick}
-                >
-                  {marker && <Marker position={marker} />}
-                </GoogleMap>
-              </LoadScript>
+              {renderMap()}
+            </Grid>
+
+            <Grid item xs={12}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={formData.availability.isOpen24Hours}
+                    onChange={handle24HoursChange}
+                  />
+                }
+                label="Open 24/7"
+              />
+            </Grid>
+
+            {!formData.availability.isOpen24Hours && (
+              <>
+                <Grid item xs={12} sm={6}>
+                  <LocalizationProvider dateAdapter={AdapterDateFns}>
+                    <TimePicker
+                      label="Opening Time"
+                      value={formData.openingTime ? new Date(`1970-01-01 ${formData.openingTime}`) : null}
+                      onChange={(value) => handleTimeChange('openingTime', value)}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          fullWidth
+                          error={!!errors.openingTime}
+                          helperText={errors.openingTime}
+                          required
+                        />
+                      )}
+                    />
+                  </LocalizationProvider>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <LocalizationProvider dateAdapter={AdapterDateFns}>
+                    <TimePicker
+                      label="Closing Time"
+                      value={formData.closingTime ? new Date(`1970-01-01 ${formData.closingTime}`) : null}
+                      onChange={(value) => handleTimeChange('closingTime', value)}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          fullWidth
+                          error={!!errors.closingTime}
+                          helperText={errors.closingTime}
+                          required
+                        />
+                      )}
+                    />
+                  </LocalizationProvider>
+                </Grid>
+              </>
+            )}
+
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Total Chargers"
+                name="totalChargers"
+                type="number"
+                value={formData.totalChargers}
+                onChange={handleInputChange}
+                error={!!errors.totalChargers}
+                helperText={errors.totalChargers}
+                required
+                inputProps={{ min: 1, max: 50 }}
+              />
             </Grid>
 
             <Grid item xs={12} sm={6}>
@@ -350,24 +515,12 @@ const AddStation = ({ open, onClose, onAdd }) => {
             </Grid>
 
             <Grid item xs={12}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={formData.availability.isOpen24Hours}
-                    onChange={handle24HoursChange}
-                  />
-                }
-                label="Open 24/7"
-              />
-            </Grid>
-
-            <Grid item xs={12}>
               <FormControl fullWidth>
                 <InputLabel>Amenities</InputLabel>
                 <Select
                   multiple
                   value={selectedAmenities}
-                  onChange={handleAmenityChange}
+                  onChange={handleInputChange}
                   renderValue={(selected) => (
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                       {selected.map((value) => (

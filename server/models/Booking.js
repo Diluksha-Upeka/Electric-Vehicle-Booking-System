@@ -11,56 +11,24 @@ const bookingSchema = new mongoose.Schema({
     ref: 'ChargingStation',
     required: true
   },
-  connector: {
-    type: String,
-    required: true
-  },
-  startTime: {
-    type: Date,
-    required: true
-  },
-  endTime: {
-    type: Date,
+  timeSlot: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'TimeSlot',
     required: true
   },
   status: {
     type: String,
-    enum: ['pending', 'confirmed', 'completed', 'cancelled'],
-    default: 'pending'
-  },
-  batteryDetails: {
-    initialPercentage: {
-      type: Number,
-      required: true,
-      min: 0,
-      max: 100
-    },
-    estimatedChargingTime: {
-      type: Number, // in minutes
-      required: true
-    }
-  },
-  pricing: {
-    estimatedCost: {
-      type: Number,
-      required: true
-    },
-    finalCost: Number
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now
+    enum: ['Confirmed', 'Cancelled', 'Checked-in', 'Completed', 'No Show'],
+    default: 'Confirmed'
   }
+}, {
+  timestamps: true
 });
 
-// Update the updatedAt timestamp before saving
-bookingSchema.pre('save', function(next) {
-  this.updatedAt = Date.now();
-  next();
-});
+// Add indexes for better query performance
+bookingSchema.index({ user: 1 });
+bookingSchema.index({ station: 1 });
+bookingSchema.index({ timeSlot: 1 });
+bookingSchema.index({ status: 1 });
 
 module.exports = mongoose.model('Booking', bookingSchema); 

@@ -13,7 +13,8 @@ import {
 } from '@mui/material';
 import { AccountCircle } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
-import '../styles/Navbar.css';
+import styles from './Navbar.module.css';
+import logo from '../assets/4.png';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
@@ -39,21 +40,16 @@ const Navbar = () => {
   };
 
   return (
-    <AppBar position="static" className="app-bar">
-      <Toolbar className="toolbar">
-        <Typography
-          variant="h6"
-          component={RouterLink}
-          to="/"
-          className="brand"
-        >
-          EVCONNECT
-        </Typography>
+    <AppBar position="static" className={styles.navbar}>
+      <Toolbar className={styles.toolbar}>
+        <RouterLink to="/" className={styles.brand}>
+          <img src={logo} alt="EVCONNECT Logo" className={styles.brandLogo} />
+        </RouterLink>
 
         {user ? (
           <>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Typography variant="body1" className="user-name">
+              <Typography variant="body1" className={styles.userName}>
                 {user.firstName} {user.lastName}
               </Typography>
               <IconButton
@@ -64,7 +60,7 @@ const Navbar = () => {
                 onClick={handleMenu}
                 color="inherit"
               >
-                <Avatar className="avatar">
+                <Avatar className={styles.avatar}>
                   <AccountCircle />
                 </Avatar>
               </IconButton>
@@ -83,7 +79,7 @@ const Navbar = () => {
                 open={Boolean(anchorEl)}
                 onClose={handleClose}
                 PaperProps={{
-                  className: 'menu-paper'
+                  className: styles.menuPaper
                 }}
               >
                 {user.role === 'admin' ? (
@@ -91,7 +87,7 @@ const Navbar = () => {
                     component={RouterLink}
                     to="/admin-dashboard"
                     onClick={handleClose}
-                    className="menu-item"
+                    className={styles.menuItem}
                   >
                     Admin Dashboard
                   </MenuItem>
@@ -100,12 +96,12 @@ const Navbar = () => {
                     component={RouterLink}
                     to="/user-dashboard"
                     onClick={handleClose}
-                    className="menu-item"
+                    className={styles.menuItem}
                   >
                     Dashboard
                   </MenuItem>
                 )}
-                <MenuItem onClick={handleLogout} className="menu-item">Logout</MenuItem>
+                <MenuItem onClick={handleLogout} className={styles.menuItem}>Logout</MenuItem>
               </Menu>
             </Box>
           </>
@@ -114,14 +110,14 @@ const Navbar = () => {
             <Button
               component={RouterLink}
               to="/login"
-              className="auth-button"
+              className={styles.authButton}
             >
               Login
             </Button>
             <Button
               component={RouterLink}
               to="/register"
-              className="auth-button"
+              className={styles.authButtonRegister}
             >
               Register
             </Button>

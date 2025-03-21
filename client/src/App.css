@@ -1,3 +1,18 @@
+/* App component styles */
+.App {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.App-content {
+  flex: 1;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
 /* Eco-friendly theme styles */
 :root {
   --primary-color: #2E7D32; /* Dark Green */
