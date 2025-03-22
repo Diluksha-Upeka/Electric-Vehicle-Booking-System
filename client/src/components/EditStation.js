@@ -6,7 +6,8 @@ import {
   TextField,
   Grid,
   Box,
-  Paper
+  Paper,
+  CircularProgress
 } from '@mui/material';
 import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
 import axios from 'axios';
@@ -98,6 +99,16 @@ const EditStation = ({ open, onClose, onUpdate, station }) => {
     onClose();
   };
 
+  if (loading) {
+    return (
+      <Dialog open={open} onClose={onClose}>
+        <Box sx={{ p: 2, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+          <CircularProgress />
+        </Box>
+      </Dialog>
+    );
+  }
+
   return (
     <Dialog open={open} onClose={onClose} maxWidth={false} fullWidth fullScreen>
       <Box sx={{ position: 'relative', height: '100vh' }}>
@@ -115,10 +126,6 @@ const EditStation = ({ open, onClose, onUpdate, station }) => {
                 position={{
                   lat: existingStation.location.coordinates[1],
                   lng: existingStation.location.coordinates[0]
-                }}
-                icon={{
-                  url: '/favicon.png',
-                  scaledSize: new window.google.maps.Size(45, 45)
                 }}
                 title={existingStation.name}
               />

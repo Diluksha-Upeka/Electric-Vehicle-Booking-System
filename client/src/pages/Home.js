@@ -1,7 +1,32 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Container, Typography, Button, Grid, Card, CardContent, Box, useTheme, useMediaQuery, Grow } from '@mui/material';
-import { LocationOn, AccessTime, BatteryChargingFull, DirectionsCar, KeyboardArrowDown, ElectricCar } from '@mui/icons-material';
+import { 
+  Container, 
+  Typography, 
+  Button, 
+  Grid, 
+  Card, 
+  CardContent, 
+  Box, 
+  useTheme, 
+  useMediaQuery, 
+  Grow,
+  alpha,
+  Stack,
+  IconButton,
+  Tooltip
+} from '@mui/material';
+import { 
+  LocationOn, 
+  AccessTime, 
+  BatteryChargingFull, 
+  DirectionsCar, 
+  KeyboardArrowDown, 
+  ElectricCar, 
+  ArrowForward,
+  Bolt,
+  TrendingUp
+} from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import '../styles/Home.css';
 import heroImage from '../assets/2.webp';
@@ -19,25 +44,29 @@ const Home = () => {
       icon: <LocationOn sx={{ fontSize: 40 }} />, 
       title: 'Smart Location', 
       desc: 'Find the nearest charging stations with real-time availability updates.',
-      color: '#2ecc71'
+      color: '#2ecc71',
+      gradient: 'linear-gradient(135deg, #2ecc71 0%, #27ae60 100%)'
     },
     { 
       icon: <AccessTime sx={{ fontSize: 40 }} />, 
       title: 'Instant Booking', 
       desc: 'Reserve your spot in seconds with our streamlined booking process.',
-      color: '#3498db'
+      color: '#3498db',
+      gradient: 'linear-gradient(135deg, #3498db 0%, #2980b9 100%)'
     },
     { 
       icon: <BatteryChargingFull sx={{ fontSize: 40 }} />, 
       title: 'Charging Analytics', 
       desc: 'Track your charging history and optimize your energy consumption.',
-      color: '#e74c3c'
+      color: '#e74c3c',
+      gradient: 'linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)'
     },
     { 
       icon: <DirectionsCar sx={{ fontSize: 40 }} />, 
       title: 'Fleet Management', 
       desc: 'Efficiently manage multiple vehicles with our advanced dashboard.',
-      color: '#9b59b6'
+      color: '#9b59b6',
+      gradient: 'linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%)'
     },
   ];
 
@@ -57,7 +86,7 @@ const Home = () => {
             variant="h1" 
             className="hero-title"
           >
-            Charge Smarter,<br />Drive Further ⚡
+            Go the Extra Mile with Smarter Charging,<br />Drive Further ⚡
           </Typography>
           <Typography 
             variant="h5" 
@@ -159,20 +188,18 @@ const Home = () => {
           >
             <Button
               variant="contained"
-              onClick={() => navigate(user ? '/user-dashboard' : '/register')}
+              size="large"
+              endIcon={<ArrowForward />}
+              onClick={() => navigate('/features')}
               sx={{
-                background: 'linear-gradient(135deg, #1a5f7a 0%, #2ecc71 100%)',
+                borderRadius: 2,
                 px: 4,
                 py: 1.5,
-                borderRadius: '50px',
-                '&:hover': {
-                  background: 'linear-gradient(135deg, #1a5f7a 20%, #2ecc71 120%)',
-                  transform: 'translateY(-2px)',
-                  boxShadow: '0 8px 25px rgba(46, 204, 113, 0.25)'
-                }
+                textTransform: 'none',
+                fontWeight: 500,
+                boxShadow: theme.shadows[4]
               }}
             >
-              <ElectricCar sx={{ mr: 1 }} />
               Explore All Features
             </Button>
           </Box>

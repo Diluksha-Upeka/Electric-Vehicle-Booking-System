@@ -13,8 +13,24 @@ import {
   Snackbar,
   TextField,
   Card,
-  CardContent
+  CardContent,
+  useTheme,
+  alpha,
+  Fade,
+  IconButton,
+  Divider,
+  Chip,
+  Avatar,
+  Tooltip
 } from '@mui/material';
+import {
+  Close as CloseIcon,
+  LocationOn,
+  AccessTime,
+  CalendarToday,
+  CheckCircle,
+  Error
+} from '@mui/icons-material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -27,6 +43,7 @@ const BookingDialog = ({ open, onClose, station, onBookingSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
+  const theme = useTheme();
 
   useEffect(() => {
     if (open) {
@@ -145,18 +162,14 @@ const BookingDialog = ({ open, onClose, station, onBookingSuccess }) => {
             key={slot._id}
             sx={{
               cursor: isAvailable ? 'pointer' : 'not-allowed',
-              bgcolor: isSelected ? 'primary.light' : isAvailable ? 'background.paper' : 'grey.100',
-              borderLeft: 4,
-              borderColor: isSelected
-                ? 'primary.main'
-                : isAvailable
-                  ? 'success.main'
-                  : 'error.main',
+              bgcolor: isSelected ? alpha(theme.palette.primary.main, 0.08) : isAvailable ? 'background.paper' : alpha(theme.palette.grey[500], 0.08),
+              border: 'none',
+              boxShadow: isSelected ? `0 0 0 2px ${theme.palette.primary.main}` : 'none',
               transition: 'all 0.2s ease-in-out',
               '&:hover': isAvailable ? {
                 transform: 'translateY(-2px)',
-                boxShadow: 3,
-                bgcolor: isSelected ? 'primary.light' : 'grey.50'
+                boxShadow: theme.shadows[4],
+                bgcolor: isSelected ? alpha(theme.palette.primary.main, 0.12) : alpha(theme.palette.primary.main, 0.04)
               } : {},
               position: 'relative',
               overflow: 'hidden'
@@ -172,27 +185,28 @@ const BookingDialog = ({ open, onClose, station, onBookingSuccess }) => {
                       sx={{
                         fontSize: '1.1rem',
                         fontWeight: 600,
-                        color: isAvailable ? 'text.primary' : 'text.secondary'
+                        color: isAvailable ? 'text.primary' : 'text.secondary',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1
                       }}
                     >
+                      <AccessTime sx={{ fontSize: '1.2rem' }} />
                       {slot.startTime} - {slot.endTime}
                     </Typography>
                     <Box
                       sx={{
                         display: 'flex',
                         alignItems: 'center',
-                        mt: 0.5
+                        mt: 1,
+                        gap: 1
                       }}
                     >
-                      <Box
-                        sx={{
-                          width: 8,
-                          height: 8,
-                          borderRadius: '50%',
-                          bgcolor: isAvailable ? 'success.main' : 'error.main',
-                          mr: 1
-                        }}
-                      />
+                      {isAvailable ? (
+                        <CheckCircle color="success" sx={{ fontSize: '1rem' }} />
+                      ) : (
+                        <Error color="error" sx={{ fontSize: '1rem' }} />
+                      )}
                       <Typography
                         variant="body2"
                         color={isAvailable ? "success.main" : "error.main"}
@@ -204,22 +218,12 @@ const BookingDialog = ({ open, onClose, station, onBookingSuccess }) => {
                   </Box>
                 </Grid>
                 <Grid item xs={12} sm={6} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-                  <Box sx={{ textAlign: 'right' }}>
-                    <Typography
-                      sx={{
-                        display: 'inline-block',
-                        px: 2,
-                        py: 1,
-                        bgcolor: isAvailable ? 'success.light' : 'error.light',
-                        color: isAvailable ? 'success.dark' : 'error.dark',
-                        borderRadius: 2,
-                        fontSize: '0.875rem',
-                        fontWeight: 500
-                      }}
-                    >
-                      {slot.availableSpots} {slot.availableSpots === 1 ? 'spot' : 'spots'} available
-                    </Typography>
-                  </Box>
+                  <Chip
+                    label={`${slot.availableSpots} ${slot.availableSpots === 1 ? 'spot' : 'spots'} available`}
+                    color={isAvailable ? "success" : "error"}
+                    variant={isAvailable ? "filled" : "outlined"}
+                    sx={{ fontWeight: 500 }}
+                  />
                 </Grid>
               </Grid>
               {isSelected && (
@@ -230,13 +234,17 @@ const BookingDialog = ({ open, onClose, station, onBookingSuccess }) => {
                     right: 0,
                     bgcolor: 'primary.main',
                     color: 'white',
-                    px: 1,
+                    px: 2,
                     py: 0.5,
                     borderBottomLeftRadius: 8,
                     fontSize: '0.75rem',
-                    fontWeight: 500
+                    fontWeight: 500,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5
                   }}
                 >
+                  <CheckCircle sx={{ fontSize: '1rem' }} />
                   Selected
                 </Box>
               )}
@@ -254,102 +262,176 @@ const BookingDialog = ({ open, onClose, station, onBookingSuccess }) => {
       maxWidth="md" 
       fullWidth
       key={`booking-dialog-${open}`}
+      PaperProps={{
+        sx: {
+          borderRadius: 2,
+          overflow: 'hidden'
+        }
+      }}
     >
-      <DialogTitle>Book Charging Station</DialogTitle>
-      <DialogContent>
+      <DialogTitle sx={{ 
+        m: 0, 
+        p: 2, 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        bgcolor: alpha(theme.palette.primary.main, 0.08)
+      }}>
+        <Typography variant="h5" sx={{ fontWeight: 600 }}>
+          Book Charging Station
+        </Typography>
+        <IconButton
+          onClick={onClose}
+          sx={{
+            color: 'grey.500',
+            '&:hover': {
+              color: 'grey.700'
+            }
+          }}
+        >
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+      <DialogContent sx={{ p: 3 }}>
         <Grid container spacing={3}>
           {station ? (
             <>
               <Grid item xs={12}>
-                <Typography variant="h6" gutterBottom>
-                  {station.name}
-                </Typography>
-                <Typography variant="body2" color="textSecondary">
-                  {formatLocation(station.location)}
-                </Typography>
-                <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
-                  Operating Hours: 8:00 AM - 8:00 PM
-                </Typography>
+                <Card sx={{ bgcolor: 'background.paper', border: 'none', boxShadow: theme.shadows[1] }}>
+                  <CardContent>
+                    <Typography variant="h5" gutterBottom sx={{ fontWeight: 600 }}>
+                      {station.name}
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary', mb: 1 }}>
+                      <LocationOn fontSize="small" />
+                      <Typography variant="body2">
+                        {formatLocation(station.location)}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
+                      <AccessTime fontSize="small" />
+                      <Typography variant="body2">
+                        Operating Hours: 8:00 AM - 8:00 PM
+                      </Typography>
+                    </Box>
+                  </CardContent>
+                </Card>
               </Grid>
 
               <Grid item xs={12}>
-                <LocalizationProvider dateAdapter={AdapterDateFns}>
-                  <DatePicker
-                    label="Select Date"
-                    value={selectedDate}
-                    onChange={handleDateChange}
-                    minDate={new Date()}
-                    maxDate={new Date(new Date().setDate(new Date().getDate() + 30))}
-                    renderInput={(params) => <TextField {...params} fullWidth />}
-                  />
-                </LocalizationProvider>
+                <Card sx={{ bgcolor: 'background.paper', border: 'none', boxShadow: theme.shadows[1] }}>
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                      <CalendarToday color="primary" />
+                      <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                        Select Date
+                      </Typography>
+                    </Box>
+                    <LocalizationProvider dateAdapter={AdapterDateFns}>
+                      <DatePicker
+                        label="Choose a date"
+                        value={selectedDate}
+                        onChange={handleDateChange}
+                        minDate={new Date()}
+                        maxDate={new Date(new Date().setDate(new Date().getDate() + 30))}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            fullWidth
+                            sx={{
+                              '& .MuiOutlinedInput-root': {
+                                borderRadius: 2
+                              }
+                            }}
+                          />
+                        )}
+                      />
+                    </LocalizationProvider>
+                  </CardContent>
+                </Card>
               </Grid>
 
               <Grid item xs={12}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                    Available Time Slots
-                  </Typography>
-                  <Box
-                    sx={{
-                      px: 2,
-                      py: 1,
-                      bgcolor: 'primary.main',
-                      color: 'white',
-                      borderRadius: 2,
-                      fontSize: '0.875rem',
-                      fontWeight: 500
-                    }}
-                  >
-                    {selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-                  </Box>
-                </Box>
+                <Card sx={{ bgcolor: 'background.paper', border: 'none', boxShadow: theme.shadows[1] }}>
+                  <CardContent>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <AccessTime color="primary" />
+                        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                          Available Time Slots
+                        </Typography>
+                      </Box>
+                      <Chip
+                        label={selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                        color="primary"
+                        variant="outlined"
+                        sx={{ fontWeight: 500 }}
+                      />
+                    </Box>
 
-                {loading ? (
-                  <Box display="flex" justifyContent="center" p={3}>
-                    <CircularProgress />
-                  </Box>
-                ) : error ? (
-                  <Alert severity="error">{error}</Alert>
-                ) : availableSlots.length === 0 ? (
-                  <Box
-                    sx={{
-                      textAlign: 'center',
-                      py: 4,
-                      bgcolor: 'grey.50',
-                      borderRadius: 2
-                    }}
-                  >
-                    <Typography color="textSecondary" variant="h6">
-                      No available slots for the selected date
-                    </Typography>
-                    <Typography color="textSecondary" variant="body2" sx={{ mt: 1 }}>
-                      Please try selecting a different date
-                    </Typography>
-                  </Box>
-                ) : (
-                  <Box sx={{ maxHeight: '500px', overflowY: 'auto', pr: 1 }}>
-                    <TimeSlotList slots={sortSlots(availableSlots)} />
-                  </Box>
-                )}
+                    {loading ? (
+                      <Box display="flex" justifyContent="center" p={3}>
+                        <CircularProgress />
+                      </Box>
+                    ) : error ? (
+                      <Alert severity="error" sx={{ borderRadius: 2 }}>{error}</Alert>
+                    ) : availableSlots.length === 0 ? (
+                      <Box
+                        sx={{
+                          textAlign: 'center',
+                          py: 4,
+                          bgcolor: alpha(theme.palette.grey[500], 0.04),
+                          borderRadius: 2
+                        }}
+                      >
+                        <Typography color="textSecondary" variant="h6" gutterBottom>
+                          No available slots for the selected date
+                        </Typography>
+                        <Typography color="textSecondary" variant="body2">
+                          Please try selecting a different date
+                        </Typography>
+                      </Box>
+                    ) : (
+                      <Box sx={{ maxHeight: '500px', overflowY: 'auto', pr: 1 }}>
+                        <TimeSlotList slots={sortSlots(availableSlots)} />
+                      </Box>
+                    )}
+                  </CardContent>
+                </Card>
               </Grid>
             </>
           ) : (
             <Grid item xs={12}>
-              <Typography variant="h6" gutterBottom>
-                Loading station...
-              </Typography>
+              <Box display="flex" justifyContent="center" p={3}>
+                <CircularProgress />
+              </Box>
             </Grid>
           )}
         </Grid>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+      <DialogActions sx={{ p: 2, bgcolor: alpha(theme.palette.grey[500], 0.04) }}>
+        <Button 
+          onClick={onClose}
+          sx={{ 
+            borderRadius: 2,
+            px: 3,
+            textTransform: 'none',
+            fontWeight: 500
+          }}
+        >
+          Cancel
+        </Button>
         <Button
           onClick={handleBooking}
           variant="contained"
           color="primary"
           disabled={!selectedSlot || loading}
+          sx={{ 
+            borderRadius: 2,
+            px: 3,
+            textTransform: 'none',
+            fontWeight: 500
+          }}
         >
           {loading ? <CircularProgress size={24} /> : 'Confirm Booking'}
         </Button>
@@ -359,8 +441,16 @@ const BookingDialog = ({ open, onClose, station, onBookingSuccess }) => {
         open={success}
         autoHideDuration={6000}
         onClose={() => setSuccess(false)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
-        <Alert severity="success" onClose={() => setSuccess(false)}>
+        <Alert 
+          severity="success" 
+          onClose={() => setSuccess(false)}
+          sx={{ 
+            borderRadius: 2,
+            boxShadow: theme.shadows[3]
+          }}
+        >
           Booking confirmed successfully!
         </Alert>
       </Snackbar>

@@ -9,6 +9,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import UserDashboard from './pages/UserDashboard';
 import AdminDashboard from './pages/AdminDashboard';
+import Features from './pages/Features';
 
 // Create a theme instance
 const theme = createTheme({
@@ -102,6 +103,7 @@ const AppRoutes = () => {
           </RoleBasedRoute>
         }
       />
+      <Route path="/features" element={<Features />} />
     </Routes>
   );
 };
