@@ -3,78 +3,91 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { TabBarIcon } from '@/components/navigation/TabBarIcon';
 import Svg, { Path } from 'react-native-svg';
+import { AuthProvider } from '@/contexts/AuthContext';
 
 export default function TabLayout() {
   return (
-    <Tabs
-      screenOptions={{
-        tabBarStyle: styles.tabBar,
-        tabBarActiveTintColor: '#5ced73',  // Active tab color
-        tabBarInactiveTintColor: '#ffffff',    // Inactive tab color
-        headerShown: false,
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: '',
-          tabBarLabel: '', // Remove text
-          tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon name={focused ? 'home' : 'home-outline'} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="login"
-        options={{
-          title: '',
-          tabBarLabel: '', // Remove text
-          tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon name={focused ? 'log-in' : 'log-in-outline'} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="register"
-        options={{
-          title: '',
-          tabBarLabel: '', // Remove text
-          tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon name={focused ? 'person-add' : 'person-add-outline'} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="aboutus"
-        options={{
-          title: '',
-          tabBarLabel: '', // Remove text
-          tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon name={focused ? 'information-circle' : 'information-circle-outline'} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-  name="booking"
-  options={{
-    title: '',
-    tabBarLabel: '',
-    tabBarIcon: ({ color, focused }) => (
-      <TabBarIcon name={focused ? 'calendar' : 'calendar-outline'} color={color} />
-    ),
-  }}
-/>
-      <Tabs.Screen
-  name="map"  // This should match the filename of your MapScreen (i.e., app/map.tsx)
-  options={{
-    title: '',
-    tabBarLabel: '', // Remove text
-    tabBarIcon: ({ color, focused }) => (
-      <MapTabIcon focused={focused} color={color} />
-    ),
-  }}
-/>
+    <AuthProvider>
+      <Tabs
+        screenOptions={{
+          tabBarStyle: styles.tabBar,
+          tabBarActiveTintColor: '#5ced73',  // Active tab color
+          tabBarInactiveTintColor: '#ffffff',    // Inactive tab color
+          headerShown: false,
+        }}>
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: '',
+            tabBarLabel: '', // Remove text
+            tabBarIcon: ({ color, focused }) => (
+              <TabBarIcon name={focused ? 'home' : 'home-outline'} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="authentication"
+          options={{
+            title: '',
+            tabBarLabel: '', // Remove text
+            tabBarIcon: ({ color, focused }) => (
+              <TabBarIcon name={focused ? 'log-in' : 'log-in-outline'} color={color} />
+            ),
+          }}
+        />
 
-    </Tabs>
+        <Tabs.Screen
+          name="aboutus"
+          options={{
+            title: '',
+            tabBarLabel: '', // Remove text
+            tabBarIcon: ({ color, focused }) => (
+              <TabBarIcon name={focused ? 'information-circle' : 'information-circle-outline'} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="booking"
+          options={{
+            title: '',
+            tabBarLabel: '',
+            tabBarIcon: ({ color, focused }) => (
+              <TabBarIcon name={focused ? 'calendar' : 'calendar-outline'} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="map"  // This should match the filename of your MapScreen (i.e., app/map.tsx)
+          options={{
+            title: '',
+            tabBarLabel: '', // Remove text
+            tabBarIcon: ({ color, focused }) => (
+              <MapTabIcon focused={focused} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="payment"
+          options={{
+            title: '',
+            tabBarLabel: '', // Remove text
+            tabBarIcon: ({ color, focused }) => (
+              <TabBarIcon name={focused ? 'card' : 'card-outline'} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="profile"
+          options={{
+            title: '',
+            tabBarLabel: '', // Remove text
+            tabBarIcon: ({ color, focused }) => (
+              <TabBarIcon name={focused ? 'person' : 'person-outline'} color={color} />
+            ),
+          }}
+        />
+      </Tabs>
+    </AuthProvider>
   );
 }
 

@@ -16,7 +16,6 @@ import {
 import { useRouter } from "expo-router";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import DateTimePicker from "@react-native-community/datetimepicker";
 
 // Interface for station data based on Station.js schema
 interface Station {
@@ -33,11 +32,6 @@ interface Station {
     zipCode: string;
     country: string;
   };
-  connectors: Array<{
-    type: string;
-    powerOutput: number;
-    status: string;
-  }>;
   operatingHours: {
     start: string;
     end: string;
@@ -53,36 +47,38 @@ interface Station {
   averageRating: number;
 }
 
-// Interface for user vehicle details based on User.js schema
-interface UserVehicle {
-  make: string;
-  model: string;
-  year: number;
-  batteryCapacity: number;
-  maxChargingRate: number;
+// Interface for time slot
+interface TimeSlot {
+  _id: string;
+  startTime: string;
+  endTime: string;
+  status: string;
+  availableSpots: number;
 }
 
-// Duration options
-const durationOptions = [
-  { label: "30 minutes", value: "30" },
-  { label: "60 minutes", value: "60" },
-  { label: "90 minutes", value: "90" },
-  { label: "120 minutes", value: "120" }
-];
-
-// Connector type options based on Station.js schema
-const connectorTypes = [
-  { label: "Type 1", value: "Type 1" },
-  { label: "Type 2", value: "Type 2" },
-  { label: "CCS", value: "CCS" },
-  { label: "CHAdeMO", value: "CHAdeMO" }
+// Add this after the TimeSlot interface
+const PREDEFINED_TIME_SLOTS = [
+  { start: '08:00', end: '09:00' },
+  { start: '09:00', end: '10:00' },
+  { start: '10:00', end: '11:00' },
+  { start: '11:00', end: '12:00' },
+  { start: '12:00', end: '13:00' },
+  { start: '13:00', end: '14:00' },
+  { start: '14:00', end: '15:00' },
+  { start: '15:00', end: '16:00' },
+  { start: '16:00', end: '17:00' },
+  { start: '17:00', end: '18:00' },
+  { start: '18:00', end: '19:00' },
+  { start: '19:00', end: '20:00' },
+  { start: '20:00', end: '21:00' },
+  { start: '21:00', end: '22:00' },
 ];
 
 export default function BookingScreen() {
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [stations, setStations] = useState<Station[]>([]);
-  const [userVehicle, setUserVehicle] = useState<UserVehicle | null>(null);
+  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -90,30 +86,44 @@ export default function BookingScreen() {
   // Form state
   const [selectedStation, setSelectedStation] = useState("");
   const [selectedStationName, setSelectedStationName] = useState("Select a station...");
-  const [selectedConnector, setSelectedConnector] = useState("");
-  const [selectedConnectorType, setSelectedConnectorType] = useState("Select connector type...");
-  const [date, setDate] = useState(new Date());
-  const [timeHour, setTimeHour] = useState("12");
-  const [timeMinute, setTimeMinute] = useState("00");
-  const [timeAMPM, setTimeAMPM] = useState("PM");
-  const [duration, setDuration] = useState("30");
-  const [durationLabel, setDurationLabel] = useState("30 minutes");
-  const [batteryPercentage, setBatteryPercentage] = useState("");
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [timeSlotId, setTimeSlotId] = useState("");
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState("Select a time slot...");
   
   // Modal states
   const [showStationModal, setShowStationModal] = useState(false);
-  const [showConnectorModal, setShowConnectorModal] = useState(false);
-  const [showDurationModal, setShowDurationModal] = useState(false);
-  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimeSlotModal, setShowTimeSlotModal] = useState(false);
   
   // API configuration based on platform
   const API_BASE_URL = __DEV__
-  ? Platform.select({
-      android: 'http://192.168.223.216:5000',      // Android emulator - fixed IP
-      ios: 'http://localhost:5000',         // iOS simulator
-      default: 'http://192.168.223.216:5000' // Physical device - fixed IP
-    })
-  : 'http://192.168.223.216:5000'; // Production URL - fixed IP
+    ? Platform.select({
+        android: 'http://192.168.170.216:5000',
+        ios: 'http://192.168.170.216:5000',
+        default: 'http://192.168.170.216:5000'
+      })
+    : 'http://192.168.170.216:5000';
+
+
+  const checkAuthStatus = async () => {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      const userId = await AsyncStorage.getItem('userId');
+
+      console.log("🔍 Retrieved Token in booking.tsx:", token);
+      console.log("🔍 Retrieved User ID in booking.tsx:", userId);
+
+      if (token && userId) {
+        console.log('🟢 User authenticated with ID:', userId);
+        setIsAuthenticated(true);
+      } else {
+        console.log('🔴 User not authenticated');
+        setIsAuthenticated(false);
+      }
+    } catch (error) {
+      console.error('🔴 Error checking authentication:', error);
+      setIsAuthenticated(false);
+    }
+  };
 
   // Check authentication status and fetch stations on component mount
   useEffect(() => {
@@ -123,34 +133,23 @@ export default function BookingScreen() {
   useEffect(() => {
     if (isAuthenticated) {
       fetchStations();
-      fetchUserVehicle();
     } else {
       setIsLoading(false);
     }
   }, [isAuthenticated]);
 
-  const checkAuthStatus = async () => {
-    try {
-      // Check for auth token in AsyncStorage
-      const token = await AsyncStorage.getItem('authToken');
-      const userId = await AsyncStorage.getItem('userId');
-      
-      if (token && userId) {
-        console.log('User authenticated with ID:', userId);
-        setIsAuthenticated(true);
-      } else {
-        console.log('User not authenticated');
-        setIsAuthenticated(false);
-      }
-    } catch (error) {
-      console.error('Error checking authentication:', error);
-      setIsAuthenticated(false);
+  // Fetch time slots when station and date are selected
+  useEffect(() => {
+    if (selectedStation && selectedDate) {
+      fetchTimeSlots();
     }
-  };
+  }, [selectedStation, selectedDate]);
+
+
 
   const handleSignIn = () => {
     // Navigate to sign-in screen
-    router.push("/login");
+    router.push("/authentication");
   };
 
   const fetchStations = async () => {
@@ -168,7 +167,7 @@ export default function BookingScreen() {
       
       setStations(response.data);
       setError("");
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching stations:', error);
       
       if (error?.response?.status === 404) {
@@ -183,29 +182,52 @@ export default function BookingScreen() {
     }
   };
 
-  const fetchUserVehicle = async () => {
+  const fetchTimeSlots = async () => {
     try {
+      setIsLoading(true);
       const token = await AsyncStorage.getItem('authToken');
-      const userId = await AsyncStorage.getItem('userId');
       
-      if (!token || !userId) {
-        return;
-      }
+      // Format date as YYYY-MM-DD for API
+      const formattedDate = selectedDate.toISOString().split('T')[0];
       
-      const response = await axios.get(`${API_BASE_URL}/api/users/${userId}/vehicle`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
+      console.log('Fetching time slots for:', {
+        stationId: selectedStation,
+        date: formattedDate
       });
       
-      if (response.data && response.data.vehicleDetails) {
-        setUserVehicle(response.data.vehicleDetails);
+      // Fetch time slots from the server
+      const response = await axios.get(
+        `${API_BASE_URL}/api/bookings/stations/${selectedStation}/time-slots?date=${formattedDate}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      console.log('Time slots response:', response.data);
+      
+      if (response.data) {
+        setTimeSlots(response.data);
+        // Reset time slot selection when fetching new slots
+        setTimeSlotId("");
+        setSelectedTimeSlot("Select a time slot...");
+        setError("");
+      } else {
+        console.log('No time slots in response');
+        setError('No time slots available');
+        setTimeSlots([]);
       }
     } catch (error) {
-      console.error('Error fetching user vehicle:', error);
-      // We don't show an error to the user here since this is supplementary information
+      console.error('Error fetching time slots:', error);
+      if (axios.isAxiosError(error)) {
+        console.error('Error details:', error.response?.data);
+      }
+      setError('Error loading available time slots');
+      setTimeSlots([]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -218,96 +240,60 @@ export default function BookingScreen() {
     });
   };
 
-  // Format time from hours, minutes, and AM/PM
-  const formatTime = () => {
-    return `${timeHour}:${timeMinute} ${timeAMPM}`;
+  // Format time slot for display
+  const formatTimeSlot = (timeSlot: TimeSlot) => {
+    const start = new Date(timeSlot.startTime);
+    const end = new Date(timeSlot.endTime);
+    
+    const startTime = start.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
+    
+    const endTime = end.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
+    
+    return `${startTime} - ${endTime}`;
   };
 
   // Handle date changes
   const changeDate = (days: number) => {
-    const newDate = new Date(date);
+    const newDate = new Date(selectedDate);
     newDate.setDate(newDate.getDate() + days);
     
     // Don't allow dates in the past
     if (newDate >= new Date()) {
-      setDate(newDate);
+      setSelectedDate(newDate);
     }
-  };
-
-  // Calculate estimated charging time based on battery percentage and vehicle details
-  const calculateEstimatedChargingTime = (): number => {
-    if (!userVehicle || !batteryPercentage) return parseInt(duration);
-    
-    const currentBatteryPercentage = parseInt(batteryPercentage);
-    if (isNaN(currentBatteryPercentage)) return parseInt(duration);
-    
-    // Simple calculation - assumes we want to reach 80% from current percentage
-    const targetPercentage = 80;
-    const percentageToCharge = targetPercentage - currentBatteryPercentage;
-    if (percentageToCharge <= 0) return parseInt(duration);
-    
-    // Calculate how many kWh we need to charge
-    const kWhToCharge = (percentageToCharge / 100) * userVehicle.batteryCapacity;
-    
-    // Calculate time based on max charging rate
-    const hoursToCharge = kWhToCharge / userVehicle.maxChargingRate;
-    const minutesToCharge = Math.ceil(hoursToCharge * 60);
-    
-    return Math.max(minutesToCharge, parseInt(duration));
-  };
-
-  // Calculate estimated cost based on station pricing and duration
-  const calculateEstimatedCost = (): number => {
-    if (!selectedStation) return 0;
-    
-    const station = stations.find(s => s._id === selectedStation);
-    if (!station || !station.pricing || !station.pricing.ratePerHour) return 0;
-    
-    const durationInHours = parseInt(duration) / 60;
-    const cost = station.pricing.ratePerHour * durationInHours;
-    
-    // Add minimum charge if applicable
-    if (station.pricing.minimumCharge && cost < station.pricing.minimumCharge) {
-      return station.pricing.minimumCharge;
-    }
-    
-    return parseFloat(cost.toFixed(2));
   };
 
   // Select station
   const selectStation = (id: string, name: string) => {
     setSelectedStation(id);
     setSelectedStationName(name);
-    // Reset connector when changing stations
-    setSelectedConnector("");
-    setSelectedConnectorType("Select connector type...");
     setShowStationModal(false);
   };
   
-  // Select connector
-  const selectConnector = (type: string) => {
-    setSelectedConnector(type);
-    setSelectedConnectorType(type);
-    setShowConnectorModal(false);
-  };
-  
-  // Select duration
-  const selectDuration = (value: string, label: string) => {
-    setDuration(value);
-    setDurationLabel(label);
-    setShowDurationModal(false);
+  // Select time slot
+  const selectTimeSlot = (id: string, timeSlot: TimeSlot) => {
+    setTimeSlotId(id);
+    setSelectedTimeSlot(formatTimeSlot(timeSlot));
+    setShowTimeSlotModal(false);
   };
 
   // Handle booking submission
   const handleBooking = async () => {
-    if (!selectedStation || !selectedConnector || !batteryPercentage) {
-      setError("Please fill in all required fields");
+    if (!selectedStation) {
+      setError("Please select a station");
       return;
     }
 
-    const batteryLevel = parseInt(batteryPercentage);
-    if (isNaN(batteryLevel) || batteryLevel < 0 || batteryLevel > 100) {
-      setError("Battery percentage must be between 0 and 100");
+    if (!timeSlotId) {
+      setError("Please select a time slot");
       return;
     }
 
@@ -325,39 +311,22 @@ export default function BookingScreen() {
         return;
       }
       
-      // Calculate start and end times
-      const startDateTime = new Date(date);
-      startDateTime.setHours(
-        timeAMPM === "PM" && parseInt(timeHour) !== 12 
-          ? parseInt(timeHour) + 12 
-          : (timeAMPM === "AM" && timeHour === "12" ? 0 : parseInt(timeHour)),
-        parseInt(timeMinute),
-        0,
-        0
-      );
-      
-      const endDateTime = new Date(startDateTime);
-      endDateTime.setMinutes(endDateTime.getMinutes() + parseInt(duration));
-      
-      // Calculate estimated charging time and cost
-      const estimatedChargingTime = calculateEstimatedChargingTime();
-      const estimatedCost = calculateEstimatedCost();
-      
+      // Get the selected time slot details
+      const selectedSlot = timeSlots.find(slot => slot._id === timeSlotId);
+      if (!selectedSlot) {
+        setError("Invalid time slot selected");
+        setIsLoading(false);
+        return;
+      }
+
+      // Format the booking data according to the server's expected format
       const bookingData = {
-        user: userId,
-        station: selectedStation,
-        connector: selectedConnector,
-        startTime: startDateTime.toISOString(),
-        endTime: endDateTime.toISOString(),
-        status: "pending",
-        batteryDetails: {
-          initialPercentage: parseInt(batteryPercentage),
-          estimatedChargingTime: estimatedChargingTime
-        },
-        pricing: {
-          estimatedCost: estimatedCost
-        }
+        stationId: selectedStation,  // Changed from station to stationId
+        timeSlotId: timeSlotId,      // Changed from nested timeSlot object to timeSlotId
+        userId: userId               // Changed from user to userId
       };
+      
+      console.log('Sending booking data:', bookingData); // Debug log
       
       const response = await axios.post(
         `${API_BASE_URL}/api/bookings`, 
@@ -376,24 +345,36 @@ export default function BookingScreen() {
         // Reset form
         setSelectedStation("");
         setSelectedStationName("Select a station...");
-        setSelectedConnector("");
-        setSelectedConnectorType("Select connector type...");
-        setDate(new Date());
-        setTimeHour("12");
-        setTimeMinute("00");
-        setTimeAMPM("PM");
-        setDuration("30");
-        setDurationLabel("30 minutes");
-        setBatteryPercentage("");
+        setTimeSlotId("");
+        setSelectedTimeSlot("Select a time slot...");
         
         // Navigate to bookings page after short delay
         setTimeout(() => {
-          router.push("/bookings");
+          router.push("/profile");
         }, 2000);
       }
     } catch (error: any) {
       console.error('Booking error:', error);
-      setError(error?.response?.data?.message || "Failed to create booking");
+      
+      // Handle different types of errors
+      if (axios.isAxiosError(error)) {
+        if (error.response) {
+          // The request was made and the server responded with a status code
+          // that falls out of the range of 2xx
+          const errorMessage = error.response.data?.message || error.response.data?.error || "Failed to create booking";
+          console.error('Server error details:', error.response.data); // Added detailed error logging
+          setError(errorMessage);
+        } else if (error.request) {
+          // The request was made but no response was received
+          setError("No response from server. Please check your connection.");
+        } else {
+          // Something happened in setting up the request that triggered an Error
+          setError("Error setting up the request");
+        }
+      } else {
+        // Something else happened
+        setError("An unexpected error occurred");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -465,21 +446,6 @@ export default function BookingScreen() {
           <Text style={styles.pickerButtonText}>{selectedStationName}</Text>
         </TouchableOpacity>
 
-        {/* Connector Type Selection */}
-        <Text style={styles.label}>Select Connector Type *</Text>
-        <TouchableOpacity 
-          style={styles.pickerButton}
-          onPress={() => {
-            if (!selectedStation) {
-              setError("Please select a station first");
-              return;
-            }
-            setShowConnectorModal(true);
-          }}
-        >
-          <Text style={styles.pickerButtonText}>{selectedConnectorType}</Text>
-        </TouchableOpacity>
-
         {/* Date Selection */}
         <Text style={styles.label}>Select Date *</Text>
         <View style={styles.dateSelector}>
@@ -490,7 +456,7 @@ export default function BookingScreen() {
             <Text style={styles.dateArrowText}>◀</Text>
           </TouchableOpacity>
           <View style={styles.dateDisplay}>
-            <Text style={styles.dateText}>{formatDate(date)}</Text>
+            <Text style={styles.dateText}>{formatDate(selectedDate)}</Text>
           </View>
           <TouchableOpacity 
             style={styles.dateArrow}
@@ -500,97 +466,20 @@ export default function BookingScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Time Selection */}
-        <Text style={styles.label}>Select Time *</Text>
-        <View style={styles.timeSelector}>
-          <View style={styles.timeInputGroup}>
-            <TextInput
-              style={styles.timeInput}
-              value={timeHour}
-              onChangeText={(text) => {
-                const num = parseInt(text);
-                if (timeAMPM === "AM" || timeAMPM === "PM") {
-                  if (!isNaN(num) && num >= 1 && num <= 12) {
-                    setTimeHour(text);
-                  } else if (text === "") {
-                    setTimeHour("");
-                  }
-                } else {
-                  if (!isNaN(num) && num >= 0 && num <= 23) {
-                    setTimeHour(text);
-                  } else if (text === "") {
-                    setTimeHour("");
-                  }
-                }
-              }}
-              keyboardType="numeric"
-              maxLength={2}
-              placeholder="HH"
-            />
-            <Text style={styles.timeColon}>:</Text>
-            <TextInput
-              style={styles.timeInput}
-              value={timeMinute}
-              onChangeText={(text) => {
-                const num = parseInt(text);
-                if (!isNaN(num) && num >= 0 && num <= 59 || text === "") {
-                  setTimeMinute(text.padStart(2, '0'));
-                }
-              }}
-              keyboardType="numeric"
-              maxLength={2}
-              placeholder="MM"
-            />
-            <TouchableOpacity 
-              style={styles.ampmButton}
-              onPress={() => setTimeAMPM(timeAMPM === "AM" ? "PM" : "AM")}
-            >
-              <Text style={styles.ampmButtonText}>{timeAMPM}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Duration Selection */}
-        <Text style={styles.label}>Charging Duration (minutes) *</Text>
+        {/* Time Slot Selection */}
+        <Text style={styles.label}>Select Time Slot *</Text>
         <TouchableOpacity 
           style={styles.pickerButton}
-          onPress={() => setShowDurationModal(true)}
-        >
-          <Text style={styles.pickerButtonText}>{durationLabel}</Text>
-        </TouchableOpacity>
-
-        {/* Battery Percentage Input */}
-        <Text style={styles.label}>Current Battery Percentage (%) *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="e.g., 25"
-          value={batteryPercentage}
-          onChangeText={(text) => {
-            const num = parseInt(text);
-            if (!isNaN(num) && num >= 0 && num <= 100 || text === "") {
-              setBatteryPercentage(text);
+          onPress={() => {
+            if (selectedStation) {
+              setShowTimeSlotModal(true);
+            } else {
+              setError("Please select a station first");
             }
           }}
-          keyboardType="numeric"
-          maxLength={3}
-          placeholderTextColor="#9ca3af"
-        />
-
-        {/* Vehicle Details */}
-        {userVehicle && (
-          <View style={styles.vehicleInfo}>
-            <Text style={styles.vehicleInfoTitle}>Vehicle Information</Text>
-            <Text style={styles.vehicleInfoText}>
-              {userVehicle.make} {userVehicle.model} ({userVehicle.year})
-            </Text>
-            <Text style={styles.vehicleInfoText}>
-              Battery Capacity: {userVehicle.batteryCapacity} kWh
-            </Text>
-            <Text style={styles.vehicleInfoText}>
-              Max Charging Rate: {userVehicle.maxChargingRate} kW
-            </Text>
-          </View>
-        )}
+        >
+          <Text style={styles.pickerButtonText}>{selectedTimeSlot}</Text>
+        </TouchableOpacity>
 
         {/* Station Details */}
         {selectedStationDetails && (
@@ -609,11 +498,6 @@ export default function BookingScreen() {
             {selectedStationDetails.pricing && (
               <Text style={styles.stationInfoText}>
                 Price: ${selectedStationDetails.pricing.ratePerHour}/hour
-              </Text>
-            )}
-            {batteryPercentage && selectedStationDetails.pricing && (
-              <Text style={styles.estimatedCost}>
-                Estimated Cost: ${calculateEstimatedCost()}
               </Text>
             )}
           </View>
@@ -690,69 +574,43 @@ export default function BookingScreen() {
         </View>
       </Modal>
 
-      {/* Connector Selection Modal */}
+      {/* Time Slot Selection Modal */}
       <Modal
         animationType="slide"
         transparent={true}
-        visible={showConnectorModal}
-        onRequestClose={() => setShowConnectorModal(false)}
+        visible={showTimeSlotModal}
+        onRequestClose={() => setShowTimeSlotModal(false)}
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Select Connector Type</Text>
-            <ScrollView style={styles.modalScrollView}>
-              {selectedStationDetails?.connectors?.filter(c => c.status === 'available').map((connector, index) => (
+            <Text style={styles.modalTitle}>Select Time Slot</Text>
+            <ScrollView style={styles.timeSlotList}>
+              {timeSlots.map((slot) => (
                 <TouchableOpacity
-                  key={index}
-                  style={styles.modalItem}
-                  onPress={() => selectConnector(connector.type)}
+                  key={slot._id}
+                  style={[
+                    styles.timeSlotItem,
+                    timeSlotId === slot._id && styles.selectedTimeSlot
+                  ]}
+                  onPress={() => selectTimeSlot(slot._id, slot)}
                 >
-                  <Text style={styles.modalItemText}>{connector.type}</Text>
-                  <Text style={styles.modalItemSubtext}>
-                    Power Output: {connector.powerOutput} kW
+                  <Text style={[
+                    styles.timeSlotText,
+                    timeSlotId === slot._id && styles.selectedTimeSlotText
+                  ]}>
+                    {formatTimeSlot(slot)}
+                  </Text>
+                  <Text style={styles.availableSpots}>
+                    Available: {slot.availableSpots}
                   </Text>
                 </TouchableOpacity>
               ))}
-              {(!selectedStationDetails?.connectors || selectedStationDetails.connectors.filter(c => c.status === 'available').length === 0) && (
-                <Text style={styles.modalNoItems}>No available connectors at this station</Text>
-              )}
             </ScrollView>
             <TouchableOpacity
-              style={styles.modalCloseButton}
-              onPress={() => setShowConnectorModal(false)}
+              style={styles.closeButton}
+              onPress={() => setShowTimeSlotModal(false)}
             >
-              <Text style={styles.modalCloseButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Duration Selection Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={showDurationModal}
-        onRequestClose={() => setShowDurationModal(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Select Duration</Text>
-            <ScrollView style={styles.modalScrollView}>
-              {durationOptions.map((option) => (
-                <TouchableOpacity
-                  key={option.value}
-                  style={styles.modalItem}
-                  onPress={() => selectDuration(option.value, option.label)}
-                >
-                  <Text style={styles.modalItemText}>{option.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            <TouchableOpacity
-              style={styles.modalCloseButton}
-              onPress={() => setShowDurationModal(false)}
-            >
-              <Text style={styles.modalCloseButtonText}>Cancel</Text>
+              <Text style={styles.closeButtonText}>Close</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -760,6 +618,7 @@ export default function BookingScreen() {
     </ScrollView>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {
@@ -1103,6 +962,45 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   modalCloseButtonText: {
+    fontSize: 16,
+    color: "#1f2937",
+    fontWeight: "500",
+  },
+  timeSlotList: {
+    maxHeight: 400,
+    width: '100%',
+  },
+  timeSlotItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  selectedTimeSlot: {
+    backgroundColor: '#5ced73',
+  },
+  timeSlotText: {
+    color: '#ffffff',
+    fontSize: 16,
+  },
+  selectedTimeSlotText: {
+    color: '#000000',
+  },
+  availableSpots: {
+    color: '#cccccc',
+    fontSize: 14,
+  },
+  closeButton: {
+    marginTop: 15,
+    padding: 12,
+    backgroundColor: "#e5e7eb",
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  closeButtonText: {
     fontSize: 16,
     color: "#1f2937",
     fontWeight: "500",

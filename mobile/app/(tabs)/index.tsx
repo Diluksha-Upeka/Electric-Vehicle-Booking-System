@@ -1,26 +1,110 @@
-import React from "react";
-import { View, Text, StyleSheet, Image, Platform } from "react-native";
+import React, { useEffect, useRef } from "react";
+import { View, Text, StyleSheet, Image, Platform, Animated, Dimensions } from "react-native";
 import Swiper from "react-native-swiper";
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from "expo-router";
 
-export default function HomeScreen({ navigation }) {
+const { width } = Dimensions.get('window');
+
+export default function HomeScreen() {
+  const router = useRouter();
+  // Animation values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
+
+  useEffect(() => {
+    // Start animations when component mounts
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 1000,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 1000,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
   return (
     <View style={styles.homePage}>
       {/* Text Section */}
-      <View style={styles.textContainer}>
+      <Animated.View 
+        style={[
+          styles.textContainer,
+          {
+            opacity: fadeAnim,
+            transform: [
+              { translateY: slideAnim },
+              { scale: scaleAnim }
+            ]
+          }
+        ]}
+      >
         <View style={styles.wrapper}>
-          <View style={styles.logoContainer}>
+          <Animated.View 
+            style={[
+              styles.logoContainer,
+              {
+                transform: [
+                  { scale: scaleAnim.interpolate({
+                    inputRange: [0.9, 1],
+                    outputRange: [0.9, 1]
+                  })}
+                ]
+              }
+            ]}
+          >
             <Image source={require("../../assets/logo.png")} style={styles.logoImage} />
-          </View>
-          <Text style={styles.title}>Welcome to EV CONNECT</Text>
-          <Text style={styles.description}>
+          </Animated.View>
+          <Animated.Text 
+            style={[
+              styles.title,
+              {
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }]
+              }
+            ]}
+          >
+            Welcome to EV CONNECT
+          </Animated.Text>
+          <Animated.Text 
+            style={[
+              styles.description,
+              {
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }]
+              }
+            ]}
+          >
             Your Ultimate EV Charging Companion
             {"\n"}The simplest way to power up your electric journey! Our mission is to make charging your EV as seamless as possible, whether you're at home, at work, or on the go!
-          </Text>
+          </Animated.Text>
         </View>
-      </View>
+      </Animated.View>
 
       {/* Slideshow Section */}
-      <View style={styles.imgContainer}>
+      <Animated.View 
+        style={[
+          styles.imgContainer,
+          {
+            opacity: fadeAnim,
+            transform: [
+              { translateY: slideAnim },
+              { scale: scaleAnim }
+            ]
+          }
+        ]}
+      >
         <Swiper
           style={styles.swiper}
           showsPagination
@@ -28,12 +112,32 @@ export default function HomeScreen({ navigation }) {
           autoplayTimeout={3}
           dotStyle={styles.dot}
           activeDotStyle={styles.activeDot}
+          loop
+          removeClippedSubviews={false}
         >
-          <Image source={require("../../assets/bg.png")} style={styles.slideImage} />
-          <Image source={require("../../assets/slide2.jpeg")} style={styles.slideImage} />
-          <Image source={require("../../assets/slide3.jpeg")} style={styles.slideImage} />
+          <View style={styles.slideContainer}>
+            <Image source={require("../../assets/bg.png")} style={styles.slideImage} />
+            <LinearGradient
+              colors={['transparent', 'rgba(0,0,0,0.3)']}
+              style={styles.gradient}
+            />
+          </View>
+          <View style={styles.slideContainer}>
+            <Image source={require("../../assets/slide2.jpeg")} style={styles.slideImage} />
+            <LinearGradient
+              colors={['transparent', 'rgba(0,0,0,0.3)']}
+              style={styles.gradient}
+            />
+          </View>
+          <View style={styles.slideContainer}>
+            <Image source={require("../../assets/slide3.jpeg")} style={styles.slideImage} />
+            <LinearGradient
+              colors={['transparent', 'rgba(0,0,0,0.3)']}
+              style={styles.gradient}
+            />
+          </View>
         </Swiper>
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -41,7 +145,7 @@ export default function HomeScreen({ navigation }) {
 const styles = StyleSheet.create({
   homePage: {
     flex: 1,
-    backgroundColor: "#ffffff", // Light blue background
+    backgroundColor: "#ffffff",
     paddingVertical: 20,
     paddingHorizontal: 25,
   },
@@ -58,7 +162,7 @@ const styles = StyleSheet.create({
     shadowRadius: 15,
     elevation: 6,
     borderWidth: 2,
-    borderColor: "#3bc449", // Green border
+    borderColor: "#3bc449",
   },
   wrapper: {
     alignItems: "center",
@@ -74,20 +178,23 @@ const styles = StyleSheet.create({
     resizeMode: "contain",
     borderRadius: 70,
     borderWidth: 2,
-    borderColor: "#1e3a8a", // Deep blue accent
+    borderColor: "#1e3a8a",
   },
   title: {
     fontSize: 28,
     fontWeight: "700",
     textAlign: "center",
-    color: "#1e3a8a", // Deep blue text
+    color: "#1e3a8a",
     marginBottom: 12,
     textTransform: "uppercase",
+    textShadowColor: 'rgba(0, 0, 0, 0.1)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   description: {
     fontSize: 18,
     textAlign: "center",
-    color: "#4b5563", // Muted gray text
+    color: "#4b5563",
     lineHeight: 26,
     paddingHorizontal: 15,
   },
@@ -98,7 +205,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     backgroundColor: "#ffffff",
     borderWidth: 2,
-    borderColor: "#1e3a8a", // Deep blue border
+    borderColor: "#1e3a8a",
     shadowColor: "#000",
     shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: 5 },
@@ -108,22 +215,36 @@ const styles = StyleSheet.create({
   swiper: {
     height: "100%",
   },
+  slideContainer: {
+    flex: 1,
+    position: 'relative',
+  },
   slideImage: {
     width: "100%",
     height: "100%",
     resizeMode: "cover",
     borderRadius: 15,
   },
+  gradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '50%',
+    borderRadius: 15,
+  },
   dot: {
-    backgroundColor: "#d1d5db", // Light gray dots
+    backgroundColor: "#d1d5db",
     width: 10,
     height: 10,
     borderRadius: 5,
+    marginHorizontal: 4,
   },
   activeDot: {
-    backgroundColor: "#3bc449", // Green active dot
+    backgroundColor: "#3bc449",
     width: 12,
     height: 12,
     borderRadius: 6,
+    marginHorizontal: 4,
   },
 });
