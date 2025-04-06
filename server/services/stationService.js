@@ -34,54 +34,42 @@ class StationService {
         );
       }
 
-      // Check if there are any active bookings before allowing status change
-      if (updateData.status === 'Inactive' && station.status === 'Active') {
+      // If status is being updated to inactive, check for active bookings
+      if (updateData.status && updateData.status.toLowerCase() === 'inactive') {
         const activeBookings = await Booking.find({
           station: stationId,
-          status: { $in: ['Confirmed', 'Checked-in'] }
+          status: { $in: ['confirmed', 'checked-in'] }
         });
 
         if (activeBookings.length > 0) {
-          throw new Error('Cannot deactivate station with active bookings');
+          throw new Error('Cannot set station to inactive while it has active bookings');
         }
       }
 
-      // Check if time-related fields are being updated
-      const needsTimeSlotUpdate = 
-        updateData.openingTime !== undefined || 
-        updateData.closingTime !== undefined || 
-        updateData.numberOfConnectors !== undefined;
+      // Update station with new data, preserving existing location if not provided
+      const updatedData = {
+        ...updateData,
+        location: updateData.location || station.location
+      };
 
-      // If only numberOfConnectors is updated, update availableSpots in existing slots
-      if (updateData.numberOfConnectors !== undefined && 
-          !updateData.openingTime && 
-          !updateData.closingTime) {
-        const chargerDiff = updateData.numberOfConnectors - station.numberOfConnectors;
-        await TimeSlot.updateMany(
-          { 
-            station: stationId,
-            date: { $gte: new Date() } // Only update future slots
-          },
-          { 
-            $inc: { availableSpots: chargerDiff },
-            $set: { 
-              status: updateData.numberOfConnectors > 0 ? 'Available' : 'Booked'
-            }
-          }
-        );
+      Object.assign(station, updatedData);
+      
+      // Ensure status is lowercase
+      if (updateData.status) {
+        station.status = updateData.status.toLowerCase();
       }
 
-      // Update station
-      Object.assign(station, updateData);
-      await station.save();
-
-      // If opening/closing times changed, regenerate all slots
-      if (updateData.openingTime || updateData.closingTime) {
-        await this.regenerateTimeSlots(station);
+      // Save the updated station
+      const savedStation = await station.save();
+      
+      // If opening/closing times or number of connectors changed, regenerate time slots
+      if (updateData.openingTime || updateData.closingTime || updateData.numberOfConnectors) {
+        await this.regenerateTimeSlots(savedStation);
       }
 
-      return station;
+      return savedStation;
     } catch (error) {
+      console.error('Error updating station:', error);
       throw error;
     }
   }
@@ -206,11 +194,7 @@ class StationService {
   // Get all stations with optional filters
   async getAllStations(filters = {}) {
     try {
-      const query = {};
-      if (filters.status) {
-        query.status = filters.status;
-      }
-      return await ChargingStation.find(query).sort({ name: 1 });
+      return await ChargingStation.find().sort({ name: 1 });
     } catch (error) {
       throw error;
     }

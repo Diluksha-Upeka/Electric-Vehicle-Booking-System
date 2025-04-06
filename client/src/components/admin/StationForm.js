@@ -22,7 +22,7 @@ const StationForm = ({ station, onSubmit, onCancel }) => {
     openingTime: '08:00 AM',
     closingTime: '08:00 PM',
     totalChargers: '',
-    status: 'Active'
+    status: 'active'
   });
 
   const [errors, setErrors] = useState({});
@@ -35,7 +35,7 @@ const StationForm = ({ station, onSubmit, onCancel }) => {
         openingTime: '08:00 AM',
         closingTime: '08:00 PM',
         totalChargers: station.totalChargers || '',
-        status: station.status || 'Active'
+        status: station.status || 'active'
       });
     }
   }, [station]);
@@ -159,8 +159,9 @@ const StationForm = ({ station, onSubmit, onCancel }) => {
               onChange={handleChange}
               label="Status"
             >
-              <MenuItem value="Active">Active</MenuItem>
-              <MenuItem value="Inactive">Inactive</MenuItem>
+              <MenuItem value="active">Active</MenuItem>
+              <MenuItem value="maintenance">Maintenance</MenuItem>
+              <MenuItem value="inactive">Inactive</MenuItem>
             </Select>
           </FormControl>
         </Grid>

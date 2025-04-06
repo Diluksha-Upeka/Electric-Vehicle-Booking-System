@@ -68,8 +68,8 @@ const RoleBasedRoute = ({ children, requiredRole }) => {
     return <Navigate to="/login" state={{ from: window.location.pathname }} />;
   }
 
-  if (requiredRole && user.role !== requiredRole) {
-    return <Navigate to={user.role === 'admin' ? '/admin-dashboard' : '/user-dashboard'} replace />;
+  if (requiredRole && user.role.toUpperCase() !== requiredRole.toUpperCase()) {
+    return <Navigate to={user.role.toUpperCase() === 'ADMIN' ? '/admin-dashboard' : '/user-dashboard'} replace />;
   }
 
   return children;

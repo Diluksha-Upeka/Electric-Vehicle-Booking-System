@@ -104,7 +104,7 @@ const StationsList = () => {
   };
 
   const handleStatusChange = (station) => {
-    const newStatus = station.status === 'Active' ? 'Inactive' : 'Active';
+    const newStatus = station.status === 'active' ? 'inactive' : 'active';
     setConfirmDialog({
       open: true,
       station,
@@ -180,7 +180,7 @@ const StationsList = () => {
                   <FormControlLabel
                     control={
                       <Switch
-                        checked={station.status === 'Active'}
+                        checked={station.status === 'active'}
                         onChange={() => handleStatusChange(station)}
                         color="primary"
                       />
@@ -188,7 +188,7 @@ const StationsList = () => {
                     label={
                       <Chip
                         label={station.status}
-                        color={station.status === 'Active' ? 'success' : 'error'}
+                        color={station.status === 'active' ? 'success' : 'error'}
                         size="small"
                       />
                     }

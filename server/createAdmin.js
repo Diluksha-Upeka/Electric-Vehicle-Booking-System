@@ -20,13 +20,12 @@ async function createAdminUser() {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash('admin123', salt);
 
-    // Create admin user
+    // Create admin user with correct model structure
     const adminUser = new User({
-      firstName: 'Admin',
-      lastName: 'User',
+      name: 'Admin User',
       email: 'admin@evcbs.com',
       password: hashedPassword,
-      role: 'admin'
+      role: 'ADMIN'
     });
 
     await adminUser.save();

@@ -32,8 +32,8 @@ const stationSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['Active', 'Inactive'],
-    default: 'Active'
+    enum: ['active', 'maintenance', 'inactive'],
+    default: 'active'
   }
 }, {
   timestamps: true // This adds createdAt and updatedAt fields

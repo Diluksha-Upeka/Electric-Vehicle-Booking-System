@@ -3,21 +3,27 @@ const mongoose = require('mongoose');
 const chargingStationSchema = new mongoose.Schema({
   name: {
     type: String,
-    required: true
+    required: true,
+    trim: true
   },
   description: {
     type: String,
-    required: true
+    required: true,
+    trim: true
   },
   location: {
     type: {
       type: String,
       enum: ['Point'],
-      required: true
+      default: 'Point'
     },
     coordinates: {
-      type: [Number], // [longitude, latitude]
-      required: true
+      type: [Number],
+      required: false
+    },
+    address: {
+      type: String,
+      required: false
     }
   },
   numberOfConnectors: {
@@ -30,11 +36,34 @@ const chargingStationSchema = new mongoose.Schema({
     required: true,
     min: 0
   },
+  openingTime: {
+    type: String,
+    required: true,
+    validate: {
+      validator: function(v) {
+        return /^([0-1]?[0-9]|2[0-3]):[0-5][0-9] (AM|PM)$/.test(v);
+      },
+      message: props => `${props.value} is not a valid time format! Use HH:MM AM/PM`
+    }
+  },
+  closingTime: {
+    type: String,
+    required: true,
+    validate: {
+      validator: function(v) {
+        return /^([0-1]?[0-9]|2[0-3]):[0-5][0-9] (AM|PM)$/.test(v);
+      },
+      message: props => `${props.value} is not a valid time format! Use HH:MM AM/PM`
+    }
+  },
   status: {
     type: String,
     enum: ['active', 'maintenance', 'inactive'],
-    default: 'active'
+    default: 'active',
+    lowercase: true
   }
+}, {
+  timestamps: true
 });
 
 // Index for geospatial queries

@@ -2,90 +2,40 @@ import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
-  Button,
+  DialogContent,
+  DialogActions,
   TextField,
-  Grid,
+  Button,
   Box,
-  Paper,
-  CircularProgress
+  MenuItem,
+  Typography,
+  useTheme,
+  alpha,
 } from '@mui/material';
-import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
-import axios from 'axios';
-
-const containerStyle = {
-  width: '100%',
-  height: '100vh',
-  position: 'relative'
-};
-
-const formStyle = {
-  position: 'absolute',
-  top: 20,
-  right: 20,
-  width: '400px',
-  maxHeight: '90vh',
-  overflowY: 'auto',
-  backgroundColor: 'rgba(255, 255, 255, 0.95)',
-  padding: '20px',
-  borderRadius: '8px',
-  boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)'
-};
 
 const EditStation = ({ open, onClose, onUpdate, station }) => {
+  const theme = useTheme();
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    location: {
-      type: 'Point',
-      coordinates: [0, 0]
-    },
-    numberOfConnectors: 1,
-    ratePerHour: 0,
-    status: 'active'
+    numberOfConnectors: '',
+    ratePerHour: '',
+    status: ''
   });
 
-  const [marker, setMarker] = useState(null);
-  const [existingStations, setExistingStations] = useState([]);
-  const [loading, setLoading] = useState(true);
-
   useEffect(() => {
-    if (open && station) {
-      setFormData(station);
-      setMarker({
-        lat: station.location.coordinates[1],
-        lng: station.location.coordinates[0]
+    if (station) {
+      setFormData({
+        name: station.name || '',
+        description: station.description || '',
+        numberOfConnectors: station.numberOfConnectors || '',
+        ratePerHour: station.ratePerHour || '',
+        status: station.status || 'active'
       });
-      fetchExistingStations();
     }
-  }, [open, station]);
+  }, [station]);
 
-  const fetchExistingStations = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const headers = { Authorization: `Bearer ${token}` };
-      const response = await axios.get('http://localhost:5000/api/stations', { headers });
-      setExistingStations(response.data.filter(s => s._id !== station._id));
-      setLoading(false);
-    } catch (error) {
-      console.error('Error fetching stations:', error);
-      setLoading(false);
-    }
-  };
-
-  const handleMapClick = (event) => {
-    const lat = event.latLng.lat();
-    const lng = event.latLng.lng();
-    setFormData(prev => ({
-      ...prev,
-      location: {
-        type: 'Point',
-        coordinates: [lng, lat]
-      }
-    }));
-    setMarker({ lat, lng });
-  };
-
-  const handleInputChange = (e) => {
+  const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -96,139 +46,208 @@ const EditStation = ({ open, onClose, onUpdate, station }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     onUpdate(station._id, formData);
-    onClose();
   };
 
-  if (loading) {
-    return (
-      <Dialog open={open} onClose={onClose}>
-        <Box sx={{ p: 2, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
-          <CircularProgress />
-        </Box>
-      </Dialog>
-    );
-  }
-
   return (
-    <Dialog open={open} onClose={onClose} maxWidth={false} fullWidth fullScreen>
-      <Box sx={{ position: 'relative', height: '100vh' }}>
-        <LoadScript googleMapsApiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY}>
-          <GoogleMap
-            mapContainerStyle={containerStyle}
-            center={{ lat: 6.9271, lng: 79.8612 }}
-            zoom={10}
-            onClick={handleMapClick}
+    <Dialog 
+      open={open} 
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: 3,
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+          border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+          backdropFilter: 'blur(10px)',
+        }
+      }}
+    >
+      <DialogTitle>
+        <Typography variant="h5" sx={{ 
+          fontWeight: 600,
+          background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          mb: 1
+        }}>
+          Edit Charging Station
+        </Typography>
+      </DialogTitle>
+      <DialogContent>
+        <Box 
+          component="form" 
+          onSubmit={handleSubmit}
+          sx={{ 
+            pt: 2,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2.5
+          }}
+        >
+          <TextField
+            label="Station Name"
+            name="name"
+            value={formData.name}
+            onChange={handleChange}
+            fullWidth
+            required
+            variant="outlined"
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+                backgroundColor: alpha(theme.palette.background.paper, 0.8),
+                transition: 'all 0.3s ease-in-out',
+                '&:hover': {
+                  backgroundColor: alpha(theme.palette.background.paper, 0.9),
+                },
+                '&.Mui-focused': {
+                  backgroundColor: alpha(theme.palette.background.paper, 1),
+                  boxShadow: `0 0 0 2px ${alpha(theme.palette.primary.main, 0.2)}`,
+                }
+              }
+            }}
+          />
+          <TextField
+            label="Description"
+            name="description"
+            value={formData.description}
+            onChange={handleChange}
+            fullWidth
+            multiline
+            rows={3}
+            variant="outlined"
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+                backgroundColor: alpha(theme.palette.background.paper, 0.8),
+                transition: 'all 0.3s ease-in-out',
+                '&:hover': {
+                  backgroundColor: alpha(theme.palette.background.paper, 0.9),
+                },
+                '&.Mui-focused': {
+                  backgroundColor: alpha(theme.palette.background.paper, 1),
+                  boxShadow: `0 0 0 2px ${alpha(theme.palette.primary.main, 0.2)}`,
+                }
+              }
+            }}
+          />
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <TextField
+              label="Number of Connectors"
+              name="numberOfConnectors"
+              type="number"
+              value={formData.numberOfConnectors}
+              onChange={handleChange}
+              fullWidth
+              required
+              variant="outlined"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  backgroundColor: alpha(theme.palette.background.paper, 0.8),
+                  transition: 'all 0.3s ease-in-out',
+                  '&:hover': {
+                    backgroundColor: alpha(theme.palette.background.paper, 0.9),
+                  },
+                  '&.Mui-focused': {
+                    backgroundColor: alpha(theme.palette.background.paper, 1),
+                    boxShadow: `0 0 0 2px ${alpha(theme.palette.primary.main, 0.2)}`,
+                  }
+                }
+              }}
+            />
+            <TextField
+              label="Rate per Hour (LKR)"
+              name="ratePerHour"
+              type="number"
+              value={formData.ratePerHour}
+              onChange={handleChange}
+              fullWidth
+              required
+              variant="outlined"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  backgroundColor: alpha(theme.palette.background.paper, 0.8),
+                  transition: 'all 0.3s ease-in-out',
+                  '&:hover': {
+                    backgroundColor: alpha(theme.palette.background.paper, 0.9),
+                  },
+                  '&.Mui-focused': {
+                    backgroundColor: alpha(theme.palette.background.paper, 1),
+                    boxShadow: `0 0 0 2px ${alpha(theme.palette.primary.main, 0.2)}`,
+                  }
+                }
+              }}
+            />
+          </Box>
+          <TextField
+            select
+            label="Status"
+            name="status"
+            value={formData.status}
+            onChange={handleChange}
+            fullWidth
+            required
+            variant="outlined"
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+                backgroundColor: alpha(theme.palette.background.paper, 0.8),
+                transition: 'all 0.3s ease-in-out',
+                '&:hover': {
+                  backgroundColor: alpha(theme.palette.background.paper, 0.9),
+                },
+                '&.Mui-focused': {
+                  backgroundColor: alpha(theme.palette.background.paper, 1),
+                  boxShadow: `0 0 0 2px ${alpha(theme.palette.primary.main, 0.2)}`,
+                }
+              }
+            }}
           >
-            {/* Existing Stations */}
-            {existingStations.map((existingStation) => (
-              <Marker
-                key={existingStation._id}
-                position={{
-                  lat: existingStation.location.coordinates[1],
-                  lng: existingStation.location.coordinates[0]
-                }}
-                title={existingStation.name}
-              />
-            ))}
-            
-            {/* Current Station Marker */}
-            {marker && (
-              <Marker
-                position={marker}
-                title="Station Location"
-              />
-            )}
-          </GoogleMap>
-        </LoadScript>
-
-        <Paper elevation={3} sx={formStyle}>
-          <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <DialogTitle sx={{ p: 0 }}>Edit Charging Station</DialogTitle>
-            <Button onClick={onClose}>Close</Button>
-          </Box>
-
-          <Box component="form" onSubmit={handleSubmit}>
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Station Name"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  required
-                />
-              </Grid>
-
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Description"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  multiline
-                  rows={2}
-                  required
-                />
-              </Grid>
-
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Number of Connectors"
-                  name="numberOfConnectors"
-                  type="number"
-                  value={formData.numberOfConnectors}
-                  onChange={handleInputChange}
-                  required
-                  inputProps={{ min: 1 }}
-                />
-              </Grid>
-
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Rate per Hour (LKR)"
-                  name="ratePerHour"
-                  type="number"
-                  value={formData.ratePerHour}
-                  onChange={handleInputChange}
-                  required
-                  inputProps={{ min: 0 }}
-                />
-              </Grid>
-
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  select
-                  label="Status"
-                  name="status"
-                  value={formData.status}
-                  onChange={handleInputChange}
-                  required
-                >
-                  <option value="active">Active</option>
-                  <option value="maintenance">Maintenance</option>
-                  <option value="inactive">Inactive</option>
-                </TextField>
-              </Grid>
-
-              <Grid item xs={12}>
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-                  <Button onClick={onClose}>Cancel</Button>
-                  <Button onClick={handleSubmit} variant="contained" color="primary">
-                    Update Station
-                  </Button>
-                </Box>
-              </Grid>
-            </Grid>
-          </Box>
-        </Paper>
-      </Box>
+            <MenuItem value="active">Active</MenuItem>
+            <MenuItem value="maintenance">Maintenance</MenuItem>
+            <MenuItem value="inactive">Inactive</MenuItem>
+          </TextField>
+        </Box>
+      </DialogContent>
+      <DialogActions sx={{ p: 3, pt: 2 }}>
+        <Button 
+          onClick={onClose}
+          sx={{ 
+            borderRadius: 2,
+            textTransform: 'none',
+            px: 3,
+            color: theme.palette.text.secondary,
+            '&:hover': {
+              backgroundColor: alpha(theme.palette.divider, 0.1),
+            }
+          }}
+        >
+          Cancel
+        </Button>
+        <Button 
+          onClick={handleSubmit}
+          variant="contained"
+          sx={{
+            borderRadius: 2,
+            textTransform: 'none',
+            px: 3,
+            background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
+            '&:hover': {
+              background: `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.primary.main} 100%)`,
+              transform: 'translateY(-1px)',
+              boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.2)}`,
+            },
+            transition: 'all 0.3s ease-in-out',
+          }}
+        >
+          Update Station
+        </Button>
+      </DialogActions>
     </Dialog>
   );
 };
 
-export default EditStation; 
+export default EditStation;

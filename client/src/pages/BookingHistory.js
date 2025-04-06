@@ -44,7 +44,7 @@ const BookingHistory = () => {
 
   const fetchBookings = async () => {
     try {
-      const endpoint = user?.role === 'admin' ? '' : '/my-bookings';
+      const endpoint = user?.role === 'ADMIN' ? '' : '/my-bookings';
       const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/bookings${endpoint}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
@@ -185,7 +185,7 @@ const BookingHistory = () => {
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       <Paper sx={{ p: 4 }}>
         <Typography variant="h4" gutterBottom>
-          {user?.role === 'admin' ? 'All Bookings' : 'My Booking History'}
+          {user?.role === 'ADMIN' ? 'All Bookings' : 'My Booking History'}
         </Typography>
 
         <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
@@ -203,9 +203,9 @@ const BookingHistory = () => {
                   <Grid container spacing={2} alignItems="center">
                     <Grid item xs={12} sm={4}>
                       <Typography variant="h6">{booking.station.name}</Typography>
-                      {user?.role === 'admin' && (
+                      {user?.role === 'ADMIN' && (
                         <Typography variant="body2" color="text.secondary">
-                          User: {booking.user.firstName} {booking.user.lastName}
+                          User: {booking.user.name}
                         </Typography>
                       )}
                     </Grid>
@@ -242,7 +242,7 @@ const BookingHistory = () => {
                         >
                           <InfoIcon />
                         </IconButton>
-                        {user?.role === 'admin' && (
+                        {user?.role === 'ADMIN' && (
                           <IconButton
                             size="small"
                             onClick={() => handleOpenStatusUpdate(booking)}
@@ -252,7 +252,7 @@ const BookingHistory = () => {
                           </IconButton>
                         )}
                         {(activeTab === 0 && booking.status !== 'cancelled' && 
-                         (user?.role === 'admin' || booking.user._id === user?._id)) && (
+                         (user?.role === 'ADMIN' || booking.user._id === user?._id)) && (
                           <IconButton
                             size="small"
                             onClick={() => handleCancelBooking(booking._id)}
@@ -278,9 +278,9 @@ const BookingHistory = () => {
               <Grid container spacing={2}>
                 <Grid item xs={12}>
                   <Typography variant="h6">{selectedBooking.station.name}</Typography>
-                  {user?.role === 'admin' && (
+                  {user?.role === 'ADMIN' && (
                     <Typography color="text.secondary">
-                      User: {selectedBooking.user.firstName} {selectedBooking.user.lastName}
+                      User: {selectedBooking.user.name}
                     </Typography>
                   )}
                 </Grid>
@@ -316,7 +316,7 @@ const BookingHistory = () => {
         </Dialog>
 
         {/* Status Update Dialog */}
-        {user?.role === 'admin' && (
+        {user?.role === 'ADMIN' && (
           <Dialog open={statusUpdateDialog} onClose={handleCloseStatusUpdate} maxWidth="xs" fullWidth>
             <DialogTitle>Update Booking Status</DialogTitle>
             <DialogContent>

@@ -86,17 +86,46 @@ export const AuthProvider = ({ children }) => {
   const updateProfile = async (userData) => {
     try {
       const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      console.log('Updating profile with data:', { ...userData, password: '[REDACTED]' });
+
       const response = await axios.put(
         `${process.env.REACT_APP_API_URL}/api/auth/profile`,
         userData,
         {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
         }
       );
-      setUser(response.data);
-      return true;
+
+      if (response.data) {
+        console.log('Profile updated successfully:', response.data);
+        setUser(response.data);
+        return true;
+      } else {
+        throw new Error('No data received from server');
+      }
     } catch (error) {
-      throw error.response?.data?.message || 'Profile update failed';
+      console.error('Profile update error:', error);
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        console.error('Error response:', error.response.data);
+        throw error.response.data.message || 'Profile update failed';
+      } else if (error.request) {
+        // The request was made but no response was received
+        console.error('No response received:', error.request);
+        throw 'No response received from server';
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        console.error('Error setting up request:', error.message);
+        throw error.message;
+      }
     }
   };
 

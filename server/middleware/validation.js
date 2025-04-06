@@ -4,37 +4,44 @@ const validateTimeFormat = (time) => {
 };
 
 const validateStationData = (req, res, next) => {
-  const { name, location, openingTime, closingTime, totalChargers, status } = req.body;
+  const { name, description, numberOfConnectors, ratePerHour, openingTime, closingTime, status } = req.body;
 
-  // Validate required fields
-  if (!name || !location || !openingTime || !closingTime || !totalChargers) {
-    return res.status(400).json({ error: 'All fields are required' });
+  // Check required fields
+  if (!name || !description || !numberOfConnectors || !ratePerHour || !openingTime || !closingTime) {
+    return res.status(400).json({ message: 'All fields are required' });
   }
 
   // Validate time format
-  if (!validateTimeFormat(openingTime) || !validateTimeFormat(closingTime)) {
-    return res.status(400).json({ 
-      error: 'Invalid time format. Use format: HH:mm AM/PM (e.g., 08:00 AM)' 
-    });
+  const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9] (AM|PM)$/;
+  if (!timeRegex.test(openingTime) || !timeRegex.test(closingTime)) {
+    return res.status(400).json({ message: 'Invalid time format. Use HH:MM AM/PM' });
   }
-
-  // Convert times to comparable format
-  const openTime = new Date(`1970-01-01 ${openingTime}`);
-  const closeTime = new Date(`1970-01-01 ${closingTime}`);
 
   // Validate time range
-  if (openTime >= closeTime) {
-    return res.status(400).json({ error: 'Opening time must be before closing time' });
+  const opening = new Date(`2000-01-01 ${openingTime}`);
+  const closing = new Date(`2000-01-01 ${closingTime}`);
+  if (opening >= closing) {
+    return res.status(400).json({ message: 'Opening time must be before closing time' });
   }
 
-  // Validate total chargers
-  if (totalChargers < 1) {
-    return res.status(400).json({ error: 'Total chargers must be at least 1' });
+  // Validate number of connectors
+  if (numberOfConnectors < 1) {
+    return res.status(400).json({ message: 'Number of connectors must be at least 1' });
+  }
+
+  // Validate rate per hour
+  if (ratePerHour < 0) {
+    return res.status(400).json({ message: 'Rate per hour must be a positive number' });
   }
 
   // Validate status if provided
-  if (status && !['Active', 'Inactive'].includes(status)) {
-    return res.status(400).json({ error: 'Invalid status. Must be either Active or Inactive' });
+  if (status && !['active', 'maintenance', 'inactive'].includes(status.toLowerCase())) {
+    return res.status(400).json({ message: 'Invalid status. Must be one of: active, maintenance, inactive' });
+  }
+
+  // Convert status to lowercase if provided
+  if (status) {
+    req.body.status = status.toLowerCase();
   }
 
   next();

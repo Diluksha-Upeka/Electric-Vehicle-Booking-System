@@ -169,7 +169,7 @@ const Navbar = () => {
                   <>
                     <MenuItem onClick={() => {
                       handleClose();
-                      navigate(user?.role === 'admin' ? '/admin-dashboard' : '/user-dashboard');
+                      navigate(user?.role === 'ADMIN' ? '/admin-dashboard' : '/user-dashboard');
                     }}>
                       <DashboardIcon sx={{ mr: 1 }} /> Dashboard
                     </MenuItem>
@@ -249,7 +249,7 @@ const Navbar = () => {
                   >
                     <MenuItem onClick={() => {
                       handleClose();
-                      navigate(user?.role === 'admin' ? '/admin-dashboard' : '/user-dashboard');
+                      navigate(user?.role === 'ADMIN' ? '/admin-dashboard' : '/user-dashboard');
                     }}>
                       <DashboardIcon sx={{ mr: 1 }} /> Dashboard
                     </MenuItem>

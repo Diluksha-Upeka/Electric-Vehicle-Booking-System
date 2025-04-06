@@ -20,20 +20,30 @@ router.post('/', authenticateJWT, authorize('admin'), async (req, res) => {
 // Update a station (admin only)
 router.put('/:id', authenticateJWT, authorize('admin'), async (req, res) => {
   try {
-    const station = await ChargingStation.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
-    );
-    
-    if (!station) {
-      return res.status(404).json({ message: 'Station not found' });
+    console.log('Received update request for station:', req.params.id);
+    console.log('Update data:', req.body);
+
+    // Ensure status is lowercase
+    if (req.body.status) {
+      req.body.status = req.body.status.toLowerCase();
     }
+
+    const updatedStation = await stationService.updateStation(req.params.id, req.body);
     
-    res.json(station);
+    if (!updatedStation) {
+      console.log('Failed to update station:', req.params.id);
+      return res.status(500).json({ message: 'Failed to update station' });
+    }
+
+    console.log('Successfully updated station:', updatedStation);
+    res.json(updatedStation);
   } catch (error) {
     console.error('Error updating station:', error);
-    res.status(500).json({ message: 'Error updating station' });
+    res.status(500).json({ 
+      message: 'Error updating station',
+      error: error.message,
+      details: error.errors
+    });
   }
 });
 
@@ -56,7 +66,7 @@ router.delete('/:id', authenticateJWT, authorize('admin'), async (req, res) => {
 // Get all stations
 router.get('/', async (req, res) => {
   try {
-    const stations = await ChargingStation.find({ status: 'active' });
+    const stations = await ChargingStation.find();
     res.json(stations);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching stations' });
@@ -87,8 +97,7 @@ router.get('/nearby', async (req, res) => {
           },
           $maxDistance: parseInt(maxDistance)
         }
-      },
-      status: 'active'
+      }
     });
 
     res.json(stations);

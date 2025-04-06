@@ -28,7 +28,8 @@ const Register = () => {
     email: '',
     password: '',
     confirmPassword: '',
-    name: '',
+    firstName: '',
+    lastName: '',
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -50,6 +51,13 @@ const Register = () => {
     setError('');
     setLoading(true);
 
+    // Validate all required fields
+    if (!formData.email || !formData.password || !formData.firstName || !formData.lastName) {
+      setError('All fields are required');
+      setLoading(false);
+      return;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
       setLoading(false);
@@ -57,10 +65,21 @@ const Register = () => {
     }
 
     try {
-      await register(formData.email, formData.password, formData.name);
-      navigate('/user-dashboard');
+      const userData = {
+        email: formData.email.trim(),
+        password: formData.password,
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim()
+      };
+      console.log('Sending registration data:', { ...userData, password: '[REDACTED]' });
+      await register(userData);
+      
+      // Add a small delay before navigation to ensure the auth state is updated
+      setTimeout(() => {
+        navigate('/user-dashboard');
+      }, 100);
     } catch (error) {
-      setError(error.message);
+      setError(error.message || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -127,9 +146,26 @@ const Register = () => {
             <form onSubmit={handleSubmit}>
               <TextField
                 fullWidth
-                label="Full Name"
-                name="name"
-                value={formData.name}
+                label="First Name"
+                name="firstName"
+                value={formData.firstName}
+                onChange={handleChange}
+                required
+                sx={{ mb: 2 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Person sx={{ color: '#1a5f7a' }} />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+
+              <TextField
+                fullWidth
+                label="Last Name"
+                name="lastName"
+                value={formData.lastName}
                 onChange={handleChange}
                 required
                 sx={{ mb: 2 }}
