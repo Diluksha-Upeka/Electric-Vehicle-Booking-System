@@ -29,12 +29,24 @@ class BookingService {
   }
 
   // Create a new booking
-  async createBooking(stationId, timeSlotId, bookingData) {
+  async createBooking(bookingData) {
     try {
       const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication token not found');
+      }
+
       const response = await axios.post(
         `${API_URL}/api/bookings`,
-        bookingData,
+        {
+          stationId: bookingData.stationId,
+          timeSlotId: bookingData.timeSlotId,
+          date: bookingData.date,
+          startTime: bookingData.startTime,
+          endTime: bookingData.endTime,
+          batteryPercentage: bookingData.batteryPercentage,
+          estimatedChargingTime: bookingData.estimatedChargingTime
+        },
         { 
           headers: { 
             Authorization: `Bearer ${token}`,

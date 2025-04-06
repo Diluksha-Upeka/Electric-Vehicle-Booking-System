@@ -26,6 +26,9 @@ import {
   Person,
   Settings,
   History,
+  EvStation,
+  Add as AddIcon,
+  List as ListIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import styles from './Navbar.module.css';
@@ -41,6 +44,8 @@ const Navbar = () => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [activeTab, setActiveTab] = useState(0);
+  const [addStationOpen, setAddStationOpen] = useState(false);
 
   const trigger = useScrollTrigger({
     threshold: 100,
@@ -173,18 +178,43 @@ const Navbar = () => {
                     }}>
                       <DashboardIcon sx={{ mr: 1 }} /> Dashboard
                     </MenuItem>
-                    <MenuItem onClick={() => {
-                      handleClose();
-                      navigate('/user-dashboard?tab=1');
-                    }}>
-                      <History sx={{ mr: 1 }} /> My Bookings
-                    </MenuItem>
-                    <MenuItem onClick={() => {
-                      handleClose();
-                      navigate('/user-dashboard?tab=2');
-                    }}>
-                      <Person sx={{ mr: 1 }} /> Profile
-                    </MenuItem>
+                    {user?.role === 'ADMIN' ? (
+                      <>
+                        <MenuItem onClick={() => {
+                          handleClose();
+                          navigate('/admin-dashboard?tab=1');
+                          setTimeout(() => {
+                            const stationsTable = document.getElementById('stations-table');
+                            if (stationsTable) {
+                              stationsTable.scrollIntoView({ behavior: 'smooth' });
+                            }
+                          }, 100);
+                        }}>
+                          <ListIcon sx={{ mr: 1 }} /> Manage Stations
+                        </MenuItem>
+                        <MenuItem onClick={() => {
+                          handleClose();
+                          navigate('/admin-dashboard?addStation=true');
+                        }}>
+                          <AddIcon sx={{ mr: 1 }} /> Add Station
+                        </MenuItem>
+                      </>
+                    ) : (
+                      <>
+                        <MenuItem onClick={() => {
+                          handleClose();
+                          navigate('/user-dashboard?tab=1');
+                        }}>
+                          <History sx={{ mr: 1 }} /> My Bookings
+                        </MenuItem>
+                        <MenuItem onClick={() => {
+                          handleClose();
+                          navigate('/user-dashboard?tab=2');
+                        }}>
+                          <Person sx={{ mr: 1 }} /> Profile
+                        </MenuItem>
+                      </>
+                    )}
                     <Divider />
                     <MenuItem onClick={() => {
                       handleClose();
@@ -253,18 +283,43 @@ const Navbar = () => {
                     }}>
                       <DashboardIcon sx={{ mr: 1 }} /> Dashboard
                     </MenuItem>
-                    <MenuItem onClick={() => {
-                      handleClose();
-                      navigate('/user-dashboard?tab=1');
-                    }}>
-                      <History sx={{ mr: 1 }} /> My Bookings
-                    </MenuItem>
-                    <MenuItem onClick={() => {
-                      handleClose();
-                      navigate('/user-dashboard?tab=2');
-                    }}>
-                      <Person sx={{ mr: 1 }} /> Profile
-                    </MenuItem>
+                    {user?.role === 'ADMIN' ? (
+                      <>
+                        <MenuItem onClick={() => {
+                          handleClose();
+                          navigate('/admin-dashboard?tab=1');
+                          setTimeout(() => {
+                            const stationsTable = document.getElementById('stations-table');
+                            if (stationsTable) {
+                              stationsTable.scrollIntoView({ behavior: 'smooth' });
+                            }
+                          }, 100);
+                        }}>
+                          <ListIcon sx={{ mr: 1 }} /> Manage Stations
+                        </MenuItem>
+                        <MenuItem onClick={() => {
+                          handleClose();
+                          navigate('/admin-dashboard?addStation=true');
+                        }}>
+                          <AddIcon sx={{ mr: 1 }} /> Add Station
+                        </MenuItem>
+                      </>
+                    ) : (
+                      <>
+                        <MenuItem onClick={() => {
+                          handleClose();
+                          navigate('/user-dashboard?tab=1');
+                        }}>
+                          <History sx={{ mr: 1 }} /> My Bookings
+                        </MenuItem>
+                        <MenuItem onClick={() => {
+                          handleClose();
+                          navigate('/user-dashboard?tab=2');
+                        }}>
+                          <Person sx={{ mr: 1 }} /> Profile
+                        </MenuItem>
+                      </>
+                    )}
                     <Divider />
                     <MenuItem onClick={() => {
                       handleClose();

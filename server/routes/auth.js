@@ -298,11 +298,6 @@ router.put('/users/:userId', authenticateJWT, authorize('ADMIN'), async (req, re
       });
     }
 
-    // Validate role if provided
-    if (role && !['USER', 'ADMIN'].includes(role.toUpperCase())) {
-      return res.status(400).json({ message: 'Invalid role' });
-    }
-
     // Check if email is already taken by another user
     const existingUser = await User.findOne({ email, _id: { $ne: req.params.userId } });
     if (existingUser) {
@@ -317,7 +312,6 @@ router.put('/users/:userId', authenticateJWT, authorize('ADMIN'), async (req, re
       { 
         name,
         email: email.toLowerCase().trim(),
-        role: role ? role.toUpperCase() : undefined,
         vehicleDetails,
         chargingPreferences
       },
@@ -330,11 +324,8 @@ router.put('/users/:userId', authenticateJWT, authorize('ADMIN'), async (req, re
 
     res.json(updatedUser);
   } catch (error) {
-    console.error('User update error:', error);
-    res.status(500).json({ 
-      message: 'Error updating user',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+    console.error('Error updating user:', error);
+    res.status(500).json({ message: 'Error updating user', error: error.message });
   }
 });
 

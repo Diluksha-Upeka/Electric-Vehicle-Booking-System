@@ -52,6 +52,7 @@ import {
 import axios from 'axios';
 import AddStation from '../components/AddStation';
 import EditStation from '../components/EditStation';
+import { useLocation } from 'react-router-dom';
 
 const StatCard = ({ title, value, icon, color }) => {
   const theme = useTheme();
@@ -97,12 +98,17 @@ const StatCard = ({ title, value, icon, color }) => {
 
 const AdminDashboard = () => {
   const theme = useTheme();
-  const [activeTab, setActiveTab] = useState(0);
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const initialTab = parseInt(searchParams.get('tab')) || 0;
+  const shouldOpenAddStation = searchParams.get('addStation') === 'true';
+
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [users, setUsers] = useState([]);
   const [stations, setStations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [addStationOpen, setAddStationOpen] = useState(false);
+  const [addStationOpen, setAddStationOpen] = useState(shouldOpenAddStation);
   const [editStationOpen, setEditStationOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedStation, setSelectedStation] = useState(null);
@@ -123,6 +129,39 @@ const AdminDashboard = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const newTab = parseInt(params.get('tab')) || 0;
+    const newAddStation = params.get('addStation') === 'true';
+    
+    if (newTab !== activeTab) {
+      setActiveTab(newTab);
+    }
+    if (newAddStation !== addStationOpen) {
+      setAddStationOpen(newAddStation);
+    }
+  }, [location.search]);
+
+  useEffect(() => {
+    const newParams = new URLSearchParams(location.search);
+    if (activeTab !== 0) {
+      newParams.set('tab', activeTab.toString());
+    } else {
+      newParams.delete('tab');
+    }
+    if (addStationOpen) {
+      newParams.set('addStation', 'true');
+    } else {
+      newParams.delete('addStation');
+    }
+    const newSearch = newParams.toString();
+    if (newSearch) {
+      window.history.replaceState(null, '', `${location.pathname}?${newSearch}`);
+    } else {
+      window.history.replaceState(null, '', location.pathname);
+    }
+  }, [activeTab, addStationOpen, location.pathname]);
 
   const fetchData = async () => {
     try {
@@ -213,11 +252,11 @@ const AdminDashboard = () => {
       // Construct the full name from firstName and lastName
       const name = `${userData.firstName} ${userData.lastName}`.trim();
       
-      // Prepare the update data
+      // Prepare the update data (without role)
       const updatedUserData = {
-        name,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
         email: userData.email,
-        role: userData.role.toUpperCase(),
         vehicleDetails: userData.vehicleDetails || {},
         chargingPreferences: userData.chargingPreferences || {}
       };
@@ -314,6 +353,14 @@ const AdminDashboard = () => {
     }));
   };
 
+  const handleAddStationClose = () => {
+    setAddStationOpen(false);
+    const newParams = new URLSearchParams(location.search);
+    newParams.delete('addStation');
+    const newSearch = newParams.toString();
+    window.history.replaceState(null, '', location.pathname + (newSearch ? `?${newSearch}` : ''));
+  };
+
   if (loading) {
     return (
       <Box 
@@ -372,10 +419,10 @@ const AdminDashboard = () => {
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <Box>
                   <Typography variant="h4" gutterBottom sx={{ fontWeight: 600, letterSpacing: '-0.5px' }}>
-                    Welcome back, Admin
-                  </Typography>
+                Welcome back, Admin
+              </Typography>
                   <Typography variant="subtitle1" color="text.secondary" sx={{ letterSpacing: '0.3px', mb: 3 }}>
-                    Here's what's happening with your EV charging network
+                Here's what's happening with your EV charging network
                   </Typography>
                   <Box sx={{ 
                     display: 'flex',
@@ -405,8 +452,8 @@ const AdminDashboard = () => {
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
                         Stations Active
-                      </Typography>
-                    </Paper>
+              </Typography>
+            </Paper>
 
                     <Paper sx={{ 
                       p: 2,
@@ -436,7 +483,7 @@ const AdminDashboard = () => {
                   </Box>
                 </Box>
 
-                {/* Stats Cards */}
+          {/* Stats Cards */}
                 <Box sx={{ 
                   display: 'flex',
                   flexDirection: 'column',
@@ -445,24 +492,24 @@ const AdminDashboard = () => {
                 }}>
                   {/* Users Group */}
                   <Box sx={{ display: 'flex', gap: 2 }}>
-                    <StatCard
-                      title="Total Users"
-                      value={users.length}
-                      icon={<PeopleIcon />}
-                      color={theme.palette.primary.main}
-                    />
-                    <StatCard
-                      title="Admin Users"
+            <StatCard
+              title="Total Users"
+              value={users.length}
+              icon={<PeopleIcon />}
+              color={theme.palette.primary.main}
+            />
+            <StatCard
+              title="Admin Users"
                       value={users.filter(user => user.role === 'ADMIN').length}
-                      icon={<AdminIcon />}
-                      color={theme.palette.warning.main}
-                    />
-                    <StatCard
-                      title="Regular Users"
+              icon={<AdminIcon />}
+              color={theme.palette.warning.main}
+            />
+            <StatCard
+              title="Regular Users"
                       value={users.filter(user => user.role === 'USER').length}
-                      icon={<PersonIcon />}
-                      color={theme.palette.info.main}
-                    />
+              icon={<PersonIcon />}
+              color={theme.palette.info.main}
+            />
                   </Box>
 
                   {/* Stations Group */}
@@ -688,6 +735,7 @@ const AdminDashboard = () => {
             ) : (
               // Stations Table
               <TableContainer 
+                id="stations-table"
                 component={Paper}
                 sx={{ 
                   borderRadius: 3,
@@ -908,7 +956,7 @@ const AdminDashboard = () => {
       {/* Add Station Dialog */}
       <AddStation
         open={addStationOpen}
-        onClose={() => setAddStationOpen(false)}
+        onClose={handleAddStationClose}
         onAdd={handleAddStation}
       />
 
@@ -973,12 +1021,12 @@ const AdminDashboard = () => {
             gap: 2.5 
           }}>
             <Box sx={{ display: 'flex', gap: 2 }}>
-              <TextField
-                label="First Name"
-                name="firstName"
-                value={editUserData.firstName}
-                onChange={handleEditUserChange}
-                fullWidth
+                <TextField
+              label="First Name"
+              name="firstName"
+              value={editUserData.firstName}
+              onChange={handleEditUserChange}
+                  fullWidth
                 required
                 variant="outlined"
                 sx={{
@@ -995,13 +1043,13 @@ const AdminDashboard = () => {
                     }
                   }
                 }}
-              />
-              <TextField
-                label="Last Name"
-                name="lastName"
-                value={editUserData.lastName}
-                onChange={handleEditUserChange}
-                fullWidth
+                />
+                <TextField
+              label="Last Name"
+              name="lastName"
+              value={editUserData.lastName}
+              onChange={handleEditUserChange}
+                  fullWidth
                 required
                 variant="outlined"
                 sx={{
@@ -1020,12 +1068,12 @@ const AdminDashboard = () => {
                 }}
               />
             </Box>
-            <TextField
+                <TextField
               label="Email Address"
               name="email"
               value={editUserData.email}
               onChange={handleEditUserChange}
-              fullWidth
+                  fullWidth
               required
               type="email"
               variant="outlined"
@@ -1044,33 +1092,6 @@ const AdminDashboard = () => {
                 }
               }}
             />
-            <TextField
-              select
-              label="User Role"
-              name="role"
-              value={editUserData.role}
-              onChange={handleEditUserChange}
-              fullWidth
-              required
-              variant="outlined"
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 2,
-                  backgroundColor: alpha(theme.palette.background.paper, 0.8),
-                  transition: 'all 0.3s ease-in-out',
-                  '&:hover': {
-                    backgroundColor: alpha(theme.palette.background.paper, 0.9),
-                  },
-                  '&.Mui-focused': {
-                    backgroundColor: alpha(theme.palette.background.paper, 1),
-                    boxShadow: `0 0 0 2px ${alpha(theme.palette.primary.main, 0.2)}`,
-                  }
-                }
-              }}
-            >
-              <MenuItem value="USER">Regular User</MenuItem>
-              <MenuItem value="ADMIN">Administrator</MenuItem>
-            </TextField>
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 3, pt: 2 }}>
