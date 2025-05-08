@@ -25,6 +25,22 @@ import ProfileSection from '../components/dashboard/ProfileSection';
 import BookingDialog from '../components/BookingDialog';
 import bookingService from '../services/bookingService';
 
+// Create axios instance with base URL
+const api = axios.create({
+  baseURL: process.env.REACT_APP_API_URL ? process.env.REACT_APP_API_URL.replace(/\/+$/, '') : '',
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
+
+// Add request interceptor to handle double slashes
+api.interceptors.request.use(config => {
+  if (config.url) {
+    config.url = config.url.replace(/\/+/g, '/');
+  }
+  return config;
+});
+
 const UserDashboard = () => {
   const theme = useTheme();
   const location = useLocation();
@@ -81,9 +97,9 @@ const UserDashboard = () => {
       const headers = { Authorization: `Bearer ${token}` };
 
       const [stationsResponse, bookingsResponse, profileResponse] = await Promise.all([
-        axios.get('http://localhost:5000/api/stations', { headers }),
-        axios.get('http://localhost:5000/api/bookings/my-bookings', { headers }),
-        axios.get('http://localhost:5000/api/auth/profile', { headers })
+        api.get('/api/stations', { headers }),
+        api.get('/api/bookings/my-bookings', { headers }),
+        api.get('/api/auth/profile', { headers })
       ]);
 
       setStations(stationsResponse.data);
@@ -120,16 +136,15 @@ const UserDashboard = () => {
 
   const fetchNearbyStations = async (latitude, longitude) => {
     try {
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/stations/nearby`,
-        {
-          params: {
-            latitude,
-            longitude,
-            maxDistance: radius, // Use the selected radius
-          },
+      const token = localStorage.getItem('token');
+      const response = await api.get('/api/stations/nearby', {
+        headers: { Authorization: `Bearer ${token}` },
+        params: {
+          latitude,
+          longitude,
+          maxDistance: radius
         }
-      );
+      });
       setNearbyStations(response.data);
     } catch (error) {
       console.error('Error fetching nearby stations:', error);
@@ -178,7 +193,7 @@ const UserDashboard = () => {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
       
-      await axios.put('http://localhost:5000/api/auth/profile', profileData, { headers });
+      await api.put('/api/auth/profile', profileData, { headers });
       fetchData(); // Refresh profile data
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -195,45 +210,23 @@ const UserDashboard = () => {
 
       console.log('Attempting to cancel booking:', bookingId);
       
-      const response = await axios.post(
-        'http://localhost:5000/api/bookings/' + bookingId + '/cancel',
+      const response = await api.post(
+        `/api/bookings/${bookingId}/cancel`,
         {},
-        { 
-          headers: { 
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
+        {
+          headers: { Authorization: `Bearer ${token}` }
         }
       );
 
-      console.log('Cancel booking response:', response.data);
-
-      if (!response.data) {
-        throw new Error('No response received from server');
+      if (response.data) {
+        // Update the bookings list
+        setBookings(prevBookings => 
+          prevBookings.filter(booking => booking._id !== bookingId)
+        );
       }
-
-      // Refresh the bookings list
-      await fetchData();
-      
-      setBookingSuccess(true);
-      setTimeout(() => setBookingSuccess(false), 3000);
     } catch (error) {
-      console.error('Error cancelling booking:', error);
-      
-      // Extract error message from response
-      const errorMessage = error.response?.data?.error || 
-                          error.response?.data?.message || 
-                          error.message || 
-                          'Failed to cancel booking';
-      
-      console.error('Detailed error:', {
-        status: error.response?.status,
-        data: error.response?.data,
-        message: errorMessage
-      });
-
-      setBookingError(errorMessage);
-      setTimeout(() => setBookingError(''), 3000);
+      console.error('Error canceling booking:', error);
+      setError('Failed to cancel booking');
     }
   };
 
