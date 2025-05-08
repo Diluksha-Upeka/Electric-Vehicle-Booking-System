@@ -13,7 +13,7 @@ const server = http.createServer(app);
 const allowedOrigins = [
   process.env.CLIENT_URL,
   "http://localhost:3000",
-  "https://electric-vehicle-booking-system.vercel.app"  // Your actual Vercel domain
+  "https://electric-vehicle-booking-system.vercel.app/"  // Your actual Vercel domain
 ].filter(Boolean); // Remove any undefined values
 
 const io = socketIo(server, {
