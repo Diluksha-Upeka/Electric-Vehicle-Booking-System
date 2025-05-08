@@ -137,7 +137,7 @@ const UserDashboard = () => {
   const fetchNearbyStations = async (latitude, longitude) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await api.get('/api/stations/nearby', {
+      const response = await api.get('api/stations/nearby', {
         headers: { Authorization: `Bearer ${token}` },
         params: {
           latitude,
