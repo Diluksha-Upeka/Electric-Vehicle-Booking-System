@@ -6,10 +6,19 @@ const AuthContext = createContext(null);
 
 // Create axios instance with base URL
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL?.replace(/\/$/, ''), // Remove trailing slash if present
+  baseURL: process.env.REACT_APP_API_URL ? process.env.REACT_APP_API_URL.replace(/\/+$/, '') : '', // Remove all trailing slashes
   headers: {
     'Content-Type': 'application/json'
   }
+});
+
+// Add request interceptor to handle double slashes
+api.interceptors.request.use(config => {
+  // Ensure URL doesn't have double slashes
+  if (config.url) {
+    config.url = config.url.replace(/\/+/g, '/');
+  }
+  return config;
 });
 
 export const useAuth = () => {
