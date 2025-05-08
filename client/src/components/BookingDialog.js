@@ -52,6 +52,9 @@ const api = axios.create({
 // Add request interceptor to handle double slashes
 api.interceptors.request.use(config => {
   if (config.url) {
+    // Remove leading slash if present
+    config.url = config.url.replace(/^\/+/, '');
+    // Replace multiple consecutive slashes with a single slash
     config.url = config.url.replace(/\/+/g, '/');
   }
   return config;
@@ -229,7 +232,7 @@ const BookingDialog = ({ open, onClose, station, onSuccess }) => {
       // First check if the user has any existing bookings for this time slot
       try {
         const checkResponse = await api.get(
-          `api/bookings/my-bookings`,
+          'api/bookings/my-bookings',
           {
             headers: { 
               'Authorization': `Bearer ${token}`,
@@ -272,7 +275,7 @@ const BookingDialog = ({ open, onClose, station, onSuccess }) => {
       console.log('Creating booking:', bookingData);
 
       const response = await api.post(
-        `api/bookings`,
+        'api/bookings',
         bookingData,
         { 
           headers: { 
