@@ -13,12 +13,16 @@ const server = http.createServer(app);
 const allowedOrigins = [
   process.env.CLIENT_URL,
   "http://localhost:3000",
-  "https://electric-vehicle-booking-system.vercel.app/"  // Your actual Vercel domain
+  "https://electric-vehicle-booking-system.vercel.app",  // Remove trailing slash
+  "https://evcbs-backend.onrender.com"  // Add backend URL
 ].filter(Boolean); // Remove any undefined values
+
+// Log allowed origins for debugging
+console.log('Allowed Origins:', allowedOrigins);
 
 const io = socketIo(server, {
   cors: {
-    origin: allowedOrigins,
+    origin: "*",  // Allow all origins for Socket.IO
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true
   }
@@ -30,6 +34,9 @@ app.use(cors({
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     
+    // Log the origin for debugging
+    console.log('Request Origin:', origin);
+    
     if (allowedOrigins.indexOf(origin) === -1) {
       console.log('Blocked by CORS:', origin);
       const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
@@ -38,8 +45,10 @@ app.use(cors({
     return callback(null, true);
   },
   credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE"],
-  allowedHeaders: ["Content-Type", "Authorization"]
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+  exposedHeaders: ["Content-Range", "X-Content-Range"],
+  maxAge: 86400 // 24 hours
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
