@@ -4,6 +4,14 @@ import { jwtDecode } from 'jwt-decode';
 
 const AuthContext = createContext(null);
 
+// Create axios instance with base URL
+const api = axios.create({
+  baseURL: process.env.REACT_APP_API_URL?.replace(/\/$/, ''), // Remove trailing slash if present
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
+
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -41,7 +49,7 @@ export const AuthProvider = ({ children }) => {
 
   const fetchUserProfile = async (token) => {
     try {
-      const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/auth/profile`, {
+      const response = await api.get('/api/auth/profile', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setUser(response.data);
@@ -53,7 +61,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/auth/login`, {
+      const response = await api.post('/api/auth/login', {
         email,
         password
       });
@@ -68,7 +76,7 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (userData) => {
     try {
-      const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/auth/register`, userData);
+      const response = await api.post('/api/auth/register', userData);
       const { token } = response.data;
       localStorage.setItem('token', token);
       await fetchUserProfile(token);
@@ -92,8 +100,8 @@ export const AuthProvider = ({ children }) => {
 
       console.log('Updating profile with data:', { ...userData, password: '[REDACTED]' });
 
-      const response = await axios.put(
-        `${process.env.REACT_APP_API_URL}/api/auth/profile`,
+      const response = await api.put(
+        '/api/auth/profile',
         userData,
         {
           headers: { 
