@@ -147,6 +147,8 @@ const AddStation = ({ open, onClose, onAdd }) => {
     },
     numberOfConnectors: 1,
     ratePerHour: 0,
+    openingTime: '08:00 AM',
+    closingTime: '08:00 PM',
     status: 'active'
   });
 

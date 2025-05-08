@@ -249,6 +249,81 @@ class StationService {
     }
   }
 
+  // Generate daily time slots for a station
+  async generateDailyTimeSlots(stationId) {
+    try {
+      const station = await ChargingStation.findById(stationId);
+      if (!station) {
+        throw new Error('Station not found');
+      }
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // Generate slots for the next 7 days
+      for (let day = 0; day < 7; day++) {
+        const slotDate = new Date(today);
+        slotDate.setDate(today.getDate() + day);
+
+        // Generate 12 hourly slots (8 AM to 8 PM)
+        for (let hour = 8; hour <= 19; hour++) {
+          const startTime = new Date(slotDate);
+          startTime.setHours(hour, 0, 0, 0);
+          
+          const endTime = new Date(slotDate);
+          endTime.setHours(hour + 1, 0, 0, 0);
+
+          // Format times for display
+          const startTimeStr = startTime.toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: true 
+          });
+          
+          const endTimeStr = endTime.toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: true 
+          });
+
+          // Check if slot already exists
+          const existingSlot = await TimeSlot.findOne({
+            station: stationId,
+            date: slotDate,
+            startTime: startTimeStr,
+            endTime: endTimeStr
+          });
+
+          if (!existingSlot) {
+            // Create new time slot with total spots equal to number of connectors
+            await TimeSlot.create({
+              station: stationId,
+              date: slotDate,
+              startTime: startTimeStr,
+              endTime: endTimeStr,
+              totalSpots: station.numberOfConnectors,
+              availableSpots: station.numberOfConnectors,
+              status: 'Available'
+            });
+          } else {
+            // Update existing slot if number of connectors has changed
+            if (existingSlot.totalSpots !== station.numberOfConnectors) {
+              const spotsDifference = station.numberOfConnectors - existingSlot.totalSpots;
+              existingSlot.totalSpots = station.numberOfConnectors;
+              existingSlot.availableSpots += spotsDifference;
+              await existingSlot.save();
+            }
+          }
+        }
+      }
+
+      return { message: 'Time slots generated successfully' };
+    } catch (error) {
+      console.error('Error generating time slots:', error);
+      throw error;
+    }
+  }
+
   // Get available time slots for a station on a specific date
   async getAvailableTimeSlots(stationId, date) {
     try {

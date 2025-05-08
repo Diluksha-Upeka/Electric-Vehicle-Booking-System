@@ -12,7 +12,9 @@ import {
   Card,
   CardContent,
   CardActions,
-  Button
+  Button,
+  useTheme,
+  alpha
 } from '@mui/material';
 import { Map, History, Settings, LocationOn, BatteryChargingFull, NavigateNext } from '@mui/icons-material';
 import axios from 'axios';
@@ -24,6 +26,7 @@ import BookingDialog from '../components/BookingDialog';
 import bookingService from '../services/bookingService';
 
 const UserDashboard = () => {
+  const theme = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState(0);
@@ -51,7 +54,7 @@ const UserDashboard = () => {
     }
   });
   const [nearbyStations, setNearbyStations] = useState([]);
-  const [radius, setRadius] = useState(10); // Default radius in km
+  const [radius, setRadius] = useState(10000); // Default 10km radius
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [bookingError, setBookingError] = useState('');
 
@@ -68,7 +71,7 @@ const UserDashboard = () => {
 
   useEffect(() => {
     if (userLocation && stations.length > 0) {
-      filterNearbyStations();
+      fetchNearbyStations(userLocation.lat, userLocation.lng);
     }
   }, [userLocation, stations, radius]);
 
@@ -115,32 +118,30 @@ const UserDashboard = () => {
     }
   };
 
-  const filterNearbyStations = () => {
-    if (!userLocation) return;
-    
-    const nearby = stations.filter(station => {
-      const distance = calculateDistance(
-        userLocation.lat,
-        userLocation.lng,
-        station.location.coordinates[1],
-        station.location.coordinates[0]
+  const fetchNearbyStations = async (latitude, longitude) => {
+    try {
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_URL}/api/stations/nearby`,
+        {
+          params: {
+            latitude,
+            longitude,
+            maxDistance: radius, // Use the selected radius
+          },
+        }
       );
-      return distance <= radius;
-    });
-    
-    setNearbyStations(nearby);
+      setNearbyStations(response.data);
+    } catch (error) {
+      console.error('Error fetching nearby stations:', error);
+      setError('Failed to fetch nearby stations');
+    }
   };
 
-  const calculateDistance = (lat1, lon1, lat2, lon2) => {
-    const R = 6371; // Earth's radius in kilometers
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = 
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-      Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
+  const handleRadiusChange = (newRadius) => {
+    setRadius(newRadius);
+    if (userLocation) {
+      fetchNearbyStations(userLocation.lat, userLocation.lng);
+    }
   };
 
   const handleTabChange = (event, newValue) => {
@@ -187,19 +188,57 @@ const UserDashboard = () => {
 
   const handleCancelBooking = async (bookingId) => {
     try {
-      await bookingService.cancelBooking(bookingId);
-      // Update the bookings list by removing the cancelled booking
-      setBookings(prevBookings => prevBookings.filter(booking => booking._id !== bookingId));
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication token not found');
+      }
+
+      console.log('Attempting to cancel booking:', bookingId);
+      
+      const response = await axios.post(
+        'http://localhost:5000/api/bookings/' + bookingId + '/cancel',
+        {},
+        { 
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      console.log('Cancel booking response:', response.data);
+
+      if (!response.data) {
+        throw new Error('No response received from server');
+      }
+
+      // Refresh the bookings list
+      await fetchData();
+      
       setBookingSuccess(true);
       setTimeout(() => setBookingSuccess(false), 3000);
     } catch (error) {
-      setBookingError(error.response?.data?.message || 'Error cancelling booking');
+      console.error('Error cancelling booking:', error);
+      
+      // Extract error message from response
+      const errorMessage = error.response?.data?.error || 
+                          error.response?.data?.message || 
+                          error.message || 
+                          'Failed to cancel booking';
+      
+      console.error('Detailed error:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: errorMessage
+      });
+
+      setBookingError(errorMessage);
       setTimeout(() => setBookingError(''), 3000);
     }
   };
 
   const filterActiveBookings = (bookings) => {
-    return bookings.filter(booking => booking.status !== 'Cancelled');
+    return bookings.filter(booking => booking.status !== 'CANCELLED');
   };
 
   if (loading) {
@@ -212,26 +251,48 @@ const UserDashboard = () => {
 
   return (
     <Container maxWidth="xl" sx={{ 
-      py: 4,
+      py: 2,
       mt: '64px',
-      minHeight: 'calc(100vh - 64px)',
+      height: 'calc(100vh - 64px)',
+      overflow: 'hidden'
     }}>
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom sx={{ fontWeight: 600 }}>
-          Welcome to Your EV Charging Dashboard
+      <Grid container spacing={2} sx={{ height: '100%' }}>
+        {/* Left Sidebar */}
+        <Grid item xs={12} md={3}>
+          <Paper 
+            elevation={0}
+            sx={{ 
+              p: 2,
+              height: '100%',
+              borderRadius: 2,
+              border: 1,
+              borderColor: 'divider',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2
+            }}
+          >
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              Welcome, {profileData.firstName}
         </Typography>
+            
         <Tabs
           value={activeTab}
           onChange={handleTabChange}
-          variant="scrollable"
-          scrollButtons="auto"
+              orientation="vertical"
+              variant="fullWidth"
           sx={{
-            mb: 3,
-            borderBottom: 1,
-            borderColor: 'divider',
             '& .MuiTab-root': {
-              minWidth: 120,
-              fontWeight: 500
+                  alignItems: 'flex-start',
+                  justifyContent: 'flex-start',
+                  minHeight: 48,
+                  textTransform: 'none',
+                  fontWeight: 500,
+                  borderRadius: 1,
+                  '&.Mui-selected': {
+                    backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                    color: theme.palette.primary.main,
+                  }
             }
           }}
         >
@@ -251,16 +312,29 @@ const UserDashboard = () => {
             iconPosition="start"
           />
         </Tabs>
-      </Box>
+          </Paper>
+        </Grid>
 
+        {/* Main Content */}
+        <Grid item xs={12} md={9}>
+          <Paper 
+            elevation={0}
+            sx={{ 
+              p: 2,
+              height: '100%',
+              borderRadius: 2,
+              border: 1,
+              borderColor: 'divider',
+              overflow: 'auto'
+            }}
+          >
       {error ? (
-        <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>
+              <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
       ) : (
-        <Box>
+              <Box sx={{ height: '100%' }}>
           {/* Find Stations Tab */}
           {activeTab === 0 && (
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={8}>
+                  <Box sx={{ height: '100%' }}>
                 <MapSection
                   stations={stations}
                   nearbyStations={nearbyStations}
@@ -269,75 +343,17 @@ const UserDashboard = () => {
                   onMapCenterChange={setMapCenter}
                   onStationSelect={handleStationSelect}
                   onRefresh={fetchData}
-                />
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <Paper 
-                  elevation={0}
-                  sx={{ 
-                    p: 2, 
-                    borderRadius: 2,
-                    border: 1,
-                    borderColor: 'divider',
-                    height: '100%'
-                  }}
-                >
-                  <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-                    Available Stations
-                  </Typography>
-                  <Box sx={{ maxHeight: 'calc(400px - 64px)', overflowY: 'auto' }}>
-                    {nearbyStations.map((station) => (
-                      <Card 
-                        key={station._id} 
-                        sx={{
-                          mb: 2,
-                          borderRadius: 2,
-                          transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
-                          '&:hover': {
-                            transform: 'translateY(-4px)',
-                            boxShadow: 4
-                          }
-                        }}
-                      >
-                        <CardContent>
-                          <Typography variant="h6" gutterBottom>
-                            {station.name}
-                          </Typography>
-                          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                            <LocationOn sx={{ mr: 1, color: 'primary.main' }} />
-                            <Typography variant="body2" color="text.secondary">
-                              {station.location.address || 'Location not available'}
-                            </Typography>
-                          </Box>
-                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            <BatteryChargingFull sx={{ mr: 1, color: 'success.main' }} />
-                            <Typography variant="body2" color="text.secondary">
-                              {station.numberOfConnectors} Connectors Available
-                            </Typography>
-                          </Box>
-                        </CardContent>
-                        <CardActions sx={{ mt: 'auto' }}>
-                          <Button 
-                            variant="contained" 
-                            fullWidth
-                            endIcon={<NavigateNext />}
-                            onClick={() => handleStationSelect(station)}
-                          >
-                            Book Now
-                          </Button>
-                        </CardActions>
-                      </Card>
-                    ))}
+                  onRadiusChange={handleRadiusChange}
+                      onBookStation={handleStationSelect}
+                    />
                   </Box>
-                </Paper>
-              </Grid>
-            </Grid>
           )}
 
           {/* My Bookings Tab */}
           {activeTab === 1 && (
             <BookingsSection
               bookings={bookings}
+                    onRefresh={fetchData}
               onCancelBooking={handleCancelBooking}
             />
           )}
@@ -352,16 +368,18 @@ const UserDashboard = () => {
           )}
         </Box>
       )}
+          </Paper>
+        </Grid>
+      </Grid>
 
       {/* Booking Dialog */}
       <BookingDialog
         open={bookingDialogOpen}
         onClose={() => setBookingDialogOpen(false)}
         station={selectedStation}
-        onBookingSuccess={() => {
-          setBookingSuccess(true);
+        onSuccess={() => {
+          setBookingDialogOpen(false);
           fetchData();
-          setTimeout(() => setBookingSuccess(false), 5000);
         }}
       />
 

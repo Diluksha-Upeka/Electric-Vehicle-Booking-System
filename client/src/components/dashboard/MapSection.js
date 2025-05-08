@@ -1,11 +1,77 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Box, Paper, Typography, CircularProgress, IconButton, Tooltip, Button } from '@mui/material';
-import { MyLocation, Refresh } from '@mui/icons-material';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { Box, Typography, CircularProgress, IconButton, Tooltip, List, ListItem, ListItemText, ListItemButton, Paper, Divider, Button } from '@mui/material';
+import { MyLocation, Refresh, LocationOn, ElectricCar, BookOnline } from '@mui/icons-material';
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
 import { useTheme } from '@mui/material/styles';
+import RadiusFilter from '../RadiusFilter';
+import { alpha } from '@mui/material/styles';
 
 // Define libraries as a static constant
 const libraries = ['places', 'marker'];
+
+// Define map styles for a more enterprise look with eco-friendly colors
+const mapStyles = [
+  {
+    featureType: 'all',
+    elementType: 'geometry',
+    stylers: [{ color: '#f5f5f5' }]
+  },
+  {
+    featureType: 'water',
+    elementType: 'geometry',
+    stylers: [{ color: '#e9e9e9' }]
+  },
+  {
+    featureType: 'water',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#9e9e9e' }]
+  },
+  {
+    featureType: 'poi',
+    elementType: 'labels',
+    stylers: [{ visibility: 'off' }]
+  },
+  {
+    featureType: 'transit',
+    elementType: 'labels',
+    stylers: [{ visibility: 'off' }]
+  },
+  {
+    featureType: 'road',
+    elementType: 'geometry',
+    stylers: [{ color: '#ffffff' }]
+  },
+  {
+    featureType: 'road',
+    elementType: 'labels.icon',
+    stylers: [{ visibility: 'off' }]
+  },
+  {
+    featureType: 'road',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#616161' }]
+  },
+  {
+    featureType: 'landscape',
+    elementType: 'geometry',
+    stylers: [{ color: '#f5f5f5' }]
+  },
+  {
+    featureType: 'administrative',
+    elementType: 'geometry.stroke',
+    stylers: [{ color: '#bdbdbd' }]
+  },
+  {
+    featureType: 'administrative.land_parcel',
+    elementType: 'geometry.stroke',
+    stylers: [{ color: '#bdbdbd' }]
+  },
+  {
+    featureType: 'administrative.land_parcel',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#9e9e9e' }]
+  }
+];
 
 const MapSection = ({ 
   stations, 
@@ -14,7 +80,9 @@ const MapSection = ({
   mapCenter, 
   onMapCenterChange,
   onStationSelect,
-  onRefresh
+  onRefresh,
+  onRadiusChange,
+  onBookStation
 }) => {
   const theme = useTheme();
   const mapRef = useRef(null);
@@ -22,6 +90,10 @@ const MapSection = ({
   const [mapError, setMapError] = useState('');
   const [selectedMarker, setSelectedMarker] = useState(null);
   const [stationsToDisplay, setStationsToDisplay] = useState([]);
+  const [radius, setRadius] = useState(10000); // Default 10km radius
+  const [bounds, setBounds] = useState(null);
+  const [currentLocation, setCurrentLocation] = useState(null);
+  const [isLocationLoading, setIsLocationLoading] = useState(true);
 
   // Use useJsApiLoader hook instead of LoadScript component for better reliability
   const { isLoaded, loadError } = useJsApiLoader({
@@ -30,6 +102,44 @@ const MapSection = ({
     libraries,
     version: 'weekly'
   });
+
+  // Get user's current location
+  const getUserLocation = useCallback(() => {
+    setIsLocationLoading(true);
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const location = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          };
+          setCurrentLocation(location);
+          if (onMapCenterChange) {
+            onMapCenterChange(location);
+          }
+          setIsLocationLoading(false);
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+          setMapError('Unable to get your location. Please enable location services.');
+          setIsLocationLoading(false);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        }
+      );
+    } else {
+      setMapError('Geolocation is not supported by your browser');
+      setIsLocationLoading(false);
+    }
+  }, [onMapCenterChange]);
+
+  // Initial location fetch
+  useEffect(() => {
+    getUserLocation();
+  }, [getUserLocation]);
 
   // Check API key on initial render
   useEffect(() => {
@@ -46,43 +156,66 @@ const MapSection = ({
 
   // Update stationsToDisplay when stations or nearbyStations change
   useEffect(() => {
-    console.log('MapSection - Stations:', stations?.length);
-    console.log('MapSection - Nearby Stations:', nearbyStations?.length);
-    console.log('MapSection - User Location:', userLocation);
-    
-    if (userLocation && nearbyStations && nearbyStations.length > 0) {
+    if (nearbyStations && nearbyStations.length > 0) {
       setStationsToDisplay(nearbyStations);
     } else if (stations && stations.length > 0) {
       setStationsToDisplay(stations);
     } else {
       setStationsToDisplay([]);
     }
-  }, [userLocation, stations, nearbyStations]);
+  }, [stations, nearbyStations]);
+
+  // Fit bounds when stations or location changes
+  useEffect(() => {
+    if (mapLoaded && stationsToDisplay.length > 0 && currentLocation) {
+      fitBoundsToStations(stationsToDisplay, currentLocation);
+    }
+  }, [mapLoaded, stationsToDisplay, currentLocation]);
+
+  // Function to fit map bounds to show all stations and user location
+  const fitBoundsToStations = (stations, userLoc) => {
+    if (!mapRef.current || !stations.length) return;
+
+    const bounds = new window.google.maps.LatLngBounds();
+    
+    // Add user location to bounds
+    if (userLoc) {
+      bounds.extend(userLoc);
+    }
+
+    // Add all stations to bounds
+    stations.forEach(station => {
+      if (station?.location?.coordinates) {
+        bounds.extend({
+          lat: station.location.coordinates[1],
+          lng: station.location.coordinates[0]
+        });
+      }
+    });
+
+    // Add padding to bounds
+    const padding = {
+      top: 50,
+      right: 50,
+      bottom: 50,
+      left: 50
+    };
+
+    mapRef.current.fitBounds(bounds, padding);
+    setBounds(bounds);
+  };
 
   const mapContainerStyle = {
     width: '100%',
-    height: '400px',
+    height: '100%',
     borderRadius: theme.shape.borderRadius,
     overflow: 'hidden',
     position: 'relative'
   };
 
-  const loadingOverlayStyle = {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1
-  };
-
   const customMarkerIcon = useMemo(() => ({
     path: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z",
-    fillColor: "#FF4444",
+    fillColor: '#2E7D32',
     fillOpacity: 1,
     strokeWeight: 2,
     strokeColor: "#FFFFFF",
@@ -92,25 +225,17 @@ const MapSection = ({
 
   const userMarkerIcon = useMemo(() => ({
     path: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z",
-    fillColor: "#4285F4",
+    fillColor: '#1976D2',
     fillOpacity: 1,
     strokeWeight: 2,
     strokeColor: "#FFFFFF",
-    scale: 1.5,
+    scale: 2,
     anchor: isLoaded && window.google?.maps ? new window.google.maps.Point(12, 22) : undefined
   }), [isLoaded]);
 
   const onMapLoad = (map) => {
     mapRef.current = map;
     setMapLoaded(true);
-    console.log('Map loaded successfully');
-  };
-
-  const getMarkerAnimation = () => {
-    if (isLoaded && window.google?.maps) {
-      return window.google.maps.Animation.DROP;
-    }
-    return null;
   };
 
   const handleMarkerClick = (station) => {
@@ -121,99 +246,159 @@ const MapSection = ({
     setSelectedMarker(null);
   };
 
-  // Handle refreshing the map with proper cleanup
   const handleRefresh = () => {
     setSelectedMarker(null);
-    
+    getUserLocation(); // Refresh location
     if (onRefresh) {
       onRefresh();
     }
   };
 
+  const handleRadiusChange = (newRadius) => {
+    setRadius(newRadius);
+    if (onRadiusChange) {
+      onRadiusChange(newRadius);
+    }
+  };
+
+  const handleLocationClick = () => {
+    if (currentLocation) {
+      onMapCenterChange(currentLocation);
+      if (mapRef.current) {
+        mapRef.current.panTo(currentLocation);
+        mapRef.current.setZoom(15);
+      }
+    } else {
+      getUserLocation(); // Try to get location again if not available
+    }
+  };
+
+  const handleStationSelect = (station) => {
+    if (onStationSelect) {
+      onStationSelect(station);
+    }
+    // Center map on selected station
+    if (mapRef.current && station?.location?.coordinates) {
+      const position = {
+        lat: station.location.coordinates[1],
+        lng: station.location.coordinates[0]
+      };
+      mapRef.current.panTo(position);
+      mapRef.current.setZoom(15);
+      setSelectedMarker(station);
+    }
+  };
+
+  const handleBookStation = (station, event) => {
+    event.stopPropagation(); // Prevent triggering the ListItemButton click
+    if (onBookStation) {
+      onBookStation(station);
+    }
+  };
+
   return (
-    <Paper 
-      elevation={0} 
-      sx={{ 
-        p: 2, 
-        borderRadius: 2,
-        border: 1,
-        borderColor: 'divider'
-      }}
-    >
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h6" sx={{ fontWeight: 600 }}>
-          Nearby Charging Stations {stationsToDisplay?.length > 0 ? `(${stationsToDisplay.length})` : ''}
+    <Box sx={{ 
+      height: '100%', 
+      display: 'flex', 
+      flexDirection: 'column', 
+      gap: 1,
+      overflow: 'hidden'
+    }}>
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        flexShrink: 0
+      }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#2E7D32' }}>
+          Available Stations {stationsToDisplay?.length > 0 ? `(${stationsToDisplay.length})` : ''}
         </Typography>
-        <Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <RadiusFilter radius={radius} onRadiusChange={handleRadiusChange} />
           <Tooltip title="Use my location">
-            <span> {/* Wrap in span to avoid Tooltip warning when button is disabled */}
+            <span>
               <IconButton 
-                onClick={() => userLocation && onMapCenterChange(userLocation)} 
+                onClick={handleLocationClick}
                 size="small" 
-                sx={{ mr: 1 }}
-                disabled={!userLocation}
+                disabled={isLocationLoading}
+                sx={{ 
+                  color: '#1976D2',
+                  padding: '4px',
+                  '&:hover': {
+                    backgroundColor: 'rgba(25, 118, 210, 0.1)'
+                  }
+                }}
               >
-                <MyLocation />
+                <MyLocation sx={{ fontSize: '1.2rem' }} />
               </IconButton>
             </span>
           </Tooltip>
           <Tooltip title="Refresh stations">
-            <IconButton onClick={handleRefresh} size="small">
-              <Refresh />
+            <IconButton 
+              onClick={handleRefresh} 
+              size="small"
+              sx={{ 
+                color: '#2E7D32',
+                padding: '4px',
+                '&:hover': {
+                  backgroundColor: 'rgba(46, 125, 50, 0.1)'
+                }
+              }}
+            >
+              <Refresh sx={{ fontSize: '1.2rem' }} />
             </IconButton>
           </Tooltip>
         </Box>
       </Box>
-      <Box sx={mapContainerStyle}>
-        {(!isLoaded || !mapLoaded) && (
-          <Box sx={loadingOverlayStyle}>
-            <CircularProgress />
-          </Box>
-        )}
-        {mapError && (
-          <Box sx={{ ...loadingOverlayStyle, backgroundColor: 'rgba(255, 0, 0, 0.1)' }}>
-            <Typography color="error">{mapError}</Typography>
-            <Button variant="contained" sx={{ mt: 2 }} onClick={() => window.location.reload()}>
-              Reload
-            </Button>
-          </Box>
-        )}
-        {isLoaded && (
+
+      {mapError ? (
+        <Box sx={{ p: 1, textAlign: 'center' }}>
+          <Typography variant="body2" color="error">{mapError}</Typography>
+        </Box>
+      ) : !isLoaded ? (
+        <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+          <CircularProgress size={20} sx={{ color: '#2E7D32' }} />
+        </Box>
+      ) : (
+        <Box sx={{ 
+          display: 'flex', 
+          gap: 1, 
+          flex: 1, 
+          minHeight: 0,
+          height: 'calc(100vh - 180px)'
+        }}>
+          {/* Map Section */}
+          <Box sx={{ 
+            flex: 2, 
+            position: 'relative', 
+            minHeight: 0,
+            height: '100%'
+          }}>
           <GoogleMap
-            mapContainerStyle={{ width: '100%', height: '100%' }}
-            center={mapCenter}
-            zoom={12}
-            options={{
-              fullscreenControl: false,
-              streetViewControl: false,
-              mapTypeControl: true,
-              mapTypeId: 'roadmap',
-              zoomControl: true,
-              styles: [
-                {
-                  featureType: 'poi',
-                  elementType: 'labels',
-                  stylers: [{ visibility: 'off' }]
-                }
-              ],
-              gestureHandling: 'cooperative'
-            }}
+            mapContainerStyle={mapContainerStyle}
+              center={currentLocation || mapCenter}
+            zoom={13}
             onLoad={onMapLoad}
-            onError={(error) => {
-              console.error('Error loading Google Map:', error);
-              setMapError('Failed to load map');
+            options={{
+                disableDefaultUI: true,
+              zoomControl: true,
+                mapTypeControl: false,
+              streetViewControl: false,
+                fullscreenControl: false,
+                styles: mapStyles,
+                gestureHandling: 'greedy'
             }}
           >
             {mapLoaded && (
               <>
                 {/* User Location Marker */}
-                {userLocation && (
-                  <Marker
-                    position={userLocation}
-                    icon={userMarkerIcon}
-                    title="Your Location"
-                    zIndex={1000}
-                  />
+                  {currentLocation && (
+                    <Marker
+                      position={currentLocation}
+                      icon={userMarkerIcon}
+                      title="Your Location"
+                      zIndex={1000}
+                    />
                 )}
 
                 {/* Station Markers */}
@@ -221,11 +406,9 @@ const MapSection = ({
                   if (!station?.location?.coordinates || 
                       !Array.isArray(station.location.coordinates) || 
                       station.location.coordinates.length < 2) {
-                    console.error('Invalid station coordinates:', station);
                     return null;
                   }
                   
-                  // Create a unique key for each marker to help React with rendering
                   const markerKey = `station-${station._id}-${station.location.coordinates[1]}-${station.location.coordinates[0]}`;
                   
                   return (
@@ -238,52 +421,193 @@ const MapSection = ({
                       onClick={() => handleMarkerClick(station)}
                       title={station.name || 'Charging Station'}
                       icon={customMarkerIcon}
-                      animation={getMarkerAnimation()}
                       zIndex={1}
                     />
                   );
                 })}
 
                 {/* InfoWindow */}
-                {selectedMarker && selectedMarker.location && (
+                {selectedMarker && (
                   <InfoWindow
                     position={{
                       lat: selectedMarker.location.coordinates[1],
                       lng: selectedMarker.location.coordinates[0]
                     }}
                     onCloseClick={handleInfoWindowClose}
-                    options={{ maxWidth: 300 }}
+                    options={{
+                      pixelOffset: new window.google.maps.Size(0, -30),
+                      maxWidth: 200
+                    }}
                   >
-                    <div>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                    <Box sx={{ p: 1 }}>
+                      <Typography variant="subtitle2" sx={{ 
+                        fontWeight: 600, 
+                        color: theme.palette.primary.main,
+                        fontSize: '0.875rem',
+                        mb: 0.5
+                      }}>
                         {selectedMarker.name}
                       </Typography>
-                      <Typography variant="body2" sx={{ mb: 0.5 }}>
-                        {selectedMarker.numberOfConnectors} connectors available
+                      <Typography variant="body2" color="text.secondary" sx={{ 
+                        fontSize: '0.75rem',
+                        mb: 1
+                      }}>
+                        {selectedMarker.numberOfConnectors} Connectors Available
                       </Typography>
-                      <Typography variant="body2" sx={{ mb: 1 }}>
-                        {selectedMarker.ratePerHour} LKR/hour
-                      </Typography>
-                      <Button 
-                        size="small" 
-                        variant="contained" 
-                        onClick={() => {
-                          onStationSelect(selectedMarker);
-                          setSelectedMarker(null);
-                        }}
+                      <Button
+                        variant="contained"
+                        size="small"
+                        startIcon={<BookOnline />}
+                        onClick={(e) => handleBookStation(selectedMarker, e)}
                         fullWidth
+                        sx={{ 
+                          backgroundColor: theme.palette.primary.main,
+                          '&:hover': {
+                            backgroundColor: theme.palette.primary.dark
+                          },
+                          fontSize: '0.75rem',
+                          py: 0.5
+                        }}
                       >
                         Book Now
                       </Button>
-                    </div>
+                    </Box>
                   </InfoWindow>
                 )}
               </>
             )}
           </GoogleMap>
-        )}
-      </Box>
-    </Paper>
+          </Box>
+
+          {/* Station List */}
+          <Paper 
+            elevation={1} 
+            sx={{ 
+              flex: 1,
+              overflow: 'hidden',
+              borderRadius: theme.shape.borderRadius,
+              border: `1px solid ${theme.palette.divider}`,
+              minWidth: '250px',
+              display: 'flex',
+              flexDirection: 'column',
+              height: '100%'
+            }}
+          >
+            <Box sx={{ 
+              p: 1.5, 
+              borderBottom: `1px solid ${theme.palette.divider}`,
+              backgroundColor: alpha(theme.palette.primary.main, 0.02),
+              flexShrink: 0
+            }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: theme.palette.primary.main }}>
+                Available Stations {stationsToDisplay?.length > 0 ? `(${stationsToDisplay.length})` : ''}
+              </Typography>
+            </Box>
+            <Box sx={{ 
+              overflow: 'auto',
+              flex: 1,
+              minHeight: 0,
+              maxHeight: 'calc(100vh - 240px)',
+              '&::-webkit-scrollbar': {
+                width: '8px',
+              },
+              '&::-webkit-scrollbar-track': {
+                background: alpha(theme.palette.primary.main, 0.05),
+                borderRadius: '4px',
+              },
+              '&::-webkit-scrollbar-thumb': {
+                background: alpha(theme.palette.primary.main, 0.2),
+                borderRadius: '4px',
+                '&:hover': {
+                  background: alpha(theme.palette.primary.main, 0.3),
+                },
+              },
+            }}>
+              <List sx={{ p: 0 }}>
+                {stationsToDisplay && stationsToDisplay.length > 0 ? (
+                  stationsToDisplay.map((station, index) => (
+                    <React.Fragment key={station._id}>
+                      <ListItemButton
+                        onClick={() => handleStationSelect(station)}
+                        selected={selectedMarker?._id === station._id}
+                        sx={{
+                          py: 1,
+                          px: 2,
+                          '&.Mui-selected': {
+                            backgroundColor: alpha(theme.palette.primary.main, 0.08),
+                            '&:hover': {
+                              backgroundColor: alpha(theme.palette.primary.main, 0.12),
+                            },
+                          },
+                          '&:hover': {
+                            backgroundColor: alpha(theme.palette.primary.main, 0.04),
+                          },
+                        }}
+                      >
+                        <ListItemText
+                          primary={
+                            <Box component="div">
+                              <Typography variant="subtitle2" component="span" sx={{ fontWeight: 600, color: theme.palette.primary.main, fontSize: '0.875rem' }}>
+                                {station.name}
+                              </Typography>
+                            </Box>
+                          }
+                          secondary={
+                            <Box component="div" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.25 }}>
+                              <LocationOn sx={{ color: 'text.secondary', fontSize: '0.875rem' }} />
+                              <Typography variant="body2" component="span" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                                {station.location.address || 'Location not available'}
+                              </Typography>
+                            </Box>
+                          }
+                        />
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <ElectricCar sx={{ color: theme.palette.primary.main, fontSize: '1rem' }} />
+                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                              {station.numberOfConnectors}
+                            </Typography>
+                          </Box>
+                          <Button
+                            variant="contained"
+                            size="small"
+                            startIcon={<BookOnline />}
+                            onClick={(e) => handleBookStation(station, e)}
+                            sx={{ 
+                              backgroundColor: theme.palette.primary.main,
+                              '&:hover': {
+                                backgroundColor: theme.palette.primary.dark
+                              },
+                              minWidth: 'auto',
+                              px: 1,
+                              py: 0.5,
+                              fontSize: '0.75rem'
+                            }}
+                          >
+                            Book
+                          </Button>
+                        </Box>
+                      </ListItemButton>
+                      {index < stationsToDisplay.length - 1 && <Divider />}
+                    </React.Fragment>
+                  ))
+                ) : (
+                  <ListItem sx={{ py: 1 }}>
+                    <ListItemText 
+                      primary={
+                        <Typography variant="body2" color="text.secondary" align="center" sx={{ fontSize: '0.75rem' }}>
+                          No stations found within {radius / 1000}km radius
+                        </Typography>
+                      }
+                    />
+                  </ListItem>
+                )}
+              </List>
+            </Box>
+          </Paper>
+        </Box>
+      )}
+    </Box>
   );
 };
 

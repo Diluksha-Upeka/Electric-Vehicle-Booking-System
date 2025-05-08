@@ -6,78 +6,82 @@ const { authenticateJWT, authorize } = require('./auth');
 const bookingService = require('../services/bookingService');
 const TimeSlot = require('../models/TimeSlot');
 
-// Create a new booking (authenticated)
+// Create a new booking
 router.post('/', authenticateJWT, async (req, res) => {
   try {
-    const { stationId, timeSlotId } = req.body;
-    const userId = req.user._id; // From JWT token
+    const { stationId, timeSlotId, paymentDetails } = req.body;
+    const userId = req.user._id;
 
-    console.log('Booking request received:', { stationId, timeSlotId, userId });
+    console.log('Received booking request:', {
+      userId,
+      stationId,
+      timeSlotId,
+      paymentDetails
+    });
 
+    // Validate required fields
     if (!stationId || !timeSlotId) {
+      console.error('Missing required fields:', { stationId, timeSlotId });
       return res.status(400).json({ error: 'Station ID and Time Slot ID are required' });
     }
 
-    // Verify station exists
-    const station = await ChargingStation.findById(stationId);
-    if (!station) {
-      console.error('Station not found:', stationId);
-      return res.status(404).json({ error: 'Station not found' });
-    }
-
-    // Verify time slot exists and is available
-    const timeSlot = await TimeSlot.findById(timeSlotId);
-    if (!timeSlot) {
-      console.error('Time slot not found:', timeSlotId);
-      return res.status(404).json({ error: 'Time slot not found' });
-    }
-
-    if (timeSlot.status !== 'Available' || timeSlot.availableSpots <= 0) {
-      console.error('Time slot not available:', { timeSlotId, status: timeSlot.status, availableSpots: timeSlot.availableSpots });
-      return res.status(400).json({ error: 'Time slot is not available' });
-    }
-
-    // Lock the time slot first
-    try {
-      await bookingService.lockTimeSlot(timeSlotId);
-      console.log('Time slot locked successfully:', timeSlotId);
-    } catch (error) {
-      console.error('Error locking time slot:', error);
-      return res.status(400).json({ error: error.message });
-    }
-
     // Create the booking
-    const booking = await bookingService.createBooking(userId, stationId, timeSlotId);
-    console.log('Booking created successfully:', booking);
-    res.status(201).json(booking);
+    const booking = await bookingService.createBooking(userId, stationId, timeSlotId, paymentDetails);
+
+    // Return the created booking
+    res.status(201).json({
+      message: 'Booking created successfully',
+      booking: {
+        id: booking._id,
+        station: {
+          id: booking.station._id,
+          name: booking.station.name,
+          location: booking.station.location
+        },
+        date: booking.date,
+        timeSlot: {
+          startTime: booking.timeSlot.startTime,
+          endTime: booking.timeSlot.endTime
+        },
+        totalAmount: booking.totalAmount,
+        advanceAmount: booking.advanceAmount,
+        remainingAmount: booking.remainingAmount,
+        status: booking.status,
+        paymentStatus: booking.paymentStatus
+      }
+    });
   } catch (error) {
     console.error('Error creating booking:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Get user's bookings (authenticated)
+// Get user's bookings
 router.get('/my-bookings', authenticateJWT, async (req, res) => {
   try {
-    const userId = req.user._id; // From JWT token
-    const bookings = await bookingService.getUserBookings(userId);
+    const bookings = await bookingService.getUserBookings(req.user._id);
     res.json(bookings);
   } catch (error) {
-    console.error('Error fetching user bookings:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Cancel a booking
-router.post('/:bookingId/cancel', authenticateJWT, async (req, res) => {
+// Get booking details
+router.get('/:id', authenticateJWT, async (req, res) => {
   try {
-    const { bookingId } = req.params;
-    const userId = req.user._id; // From JWT token
-
-    const booking = await bookingService.cancelBooking(bookingId, userId);
+    const booking = await bookingService.getBookingDetails(req.params.id, req.user._id);
     res.json(booking);
   } catch (error) {
-    console.error('Error cancelling booking:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Cancel booking
+router.post('/:id/cancel', authenticateJWT, async (req, res) => {
+  try {
+    const booking = await bookingService.cancelBooking(req.params.id, req.user._id);
+    res.json(booking);
+  } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
@@ -136,19 +140,75 @@ router.get('/stations/:stationId/time-slots', authenticateJWT, async (req, res) 
     const { stationId } = req.params;
     const { date } = req.query;
 
+    console.log('Fetching time slots for station:', stationId, 'date:', date);
+
     if (!stationId || !date) {
+      console.log('Missing required parameters:', { stationId, date });
       return res.status(400).json({ error: 'Station ID and date are required' });
     }
 
     const station = await ChargingStation.findById(stationId);
     if (!station) {
+      console.log('Station not found:', stationId);
       return res.status(404).json({ error: 'Station not found' });
     }
 
-    const availableSlots = await bookingService.getAvailableSlots(stationId, new Date(date));
-    res.json(availableSlots);
+    console.log('Found station:', {
+      id: station._id,
+      name: station.name,
+      connectors: station.numberOfConnectors,
+      status: station.status
+    });
+
+    if (station.status !== 'active') {
+      console.log('Station is not active:', station.status);
+      return res.status(400).json({ error: 'Station is not active' });
+    }
+
+    const parsedDate = new Date(date);
+    if (isNaN(parsedDate.getTime())) {
+      console.log('Invalid date format:', date);
+      return res.status(400).json({ error: 'Invalid date format' });
+    }
+
+    console.log('Parsed date:', parsedDate.toISOString());
+
+    const availableSlots = await bookingService.getAvailableSlots(stationId, parsedDate);
+    console.log('Available slots found:', availableSlots.slots?.length || 0);
+    
+    // Ensure each slot has all required fields
+    const formattedSlots = (availableSlots.slots || []).map(slot => ({
+      _id: slot._id,
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+      availableSpots: slot.availableSpots || 0,
+      totalSpots: slot.totalSpots || 0,
+      status: slot.status || 'Available'
+    }));
+
+    // Create the response object
+    const response = {
+      stationId,
+      date: parsedDate.toISOString(),
+      stationName: station.name,
+      slots: formattedSlots
+    };
+
+    console.log('Sending response:', response);
+    res.json(response);
   } catch (error) {
     console.error('Error fetching available slots:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Clean up random bookings
+router.post('/cleanup', async (req, res) => {
+  try {
+    const result = await bookingService.cleanupRandomBookings();
+    res.json(result);
+  } catch (error) {
+    console.error('Error in cleanup route:', error);
     res.status(500).json({ error: error.message });
   }
 });

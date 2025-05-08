@@ -5,105 +5,168 @@ import {
   DialogContent,
   DialogActions,
   Button,
-  Grid,
-  Typography,
+  TextField,
   Box,
+  Typography,
+  Grid,
+  Paper,
+  Chip,
   CircularProgress,
   Alert,
-  Snackbar,
-  TextField,
-  Card,
-  CardContent,
-  useTheme,
-  alpha,
-  Fade,
-  IconButton,
-  Divider,
-  Chip,
-  Avatar,
-  Tooltip,
   Stepper,
   Step,
   StepLabel,
-  StepContent,
-  Paper,
-  Badge,
-  Tabs,
-  Tab,
-  Zoom,
-  InputAdornment,
-  Radio,
-  RadioGroup,
-  FormControlLabel,
-  FormControl,
-  FormLabel
+  IconButton,
+  Divider,
+  useTheme,
+  alpha,
+  InputAdornment
 } from '@mui/material';
 import {
   Close as CloseIcon,
   LocationOn,
   AccessTime,
-  CalendarToday,
+  Payment,
   CheckCircle,
-  Error,
-  Info,
   BatteryChargingFull,
-  Timer,
-  Payment as PaymentIcon,
-  ConfirmationNumber,
-  ArrowForward,
-  ArrowBack,
+  AttachMoney,
   CreditCard,
-  AccountBalance,
-  LocalAtm
+  Receipt,
+  Business,
+  CalendarToday,
+  Schedule
 } from '@mui/icons-material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import bookingService from '../services/bookingService';
-import { loadStripe } from '@stripe/stripe-js';
+import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
+import { format, addDays, isBefore, isAfter, setHours, setMinutes } from 'date-fns';
+import axios from 'axios';
 
-const BookingDialog = ({ open, onClose, station }) => {
+const steps = ['Select Date', 'Choose Time Slot', 'Payment', 'Confirmation'];
+
+const BookingDialog = ({ open, onClose, station, onSuccess }) => {
   const theme = useTheme();
   const [activeStep, setActiveStep] = useState(0);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [availableSlots, setAvailableSlots] = useState([]);
-  const [selectedSlots, setSelectedSlots] = useState([]);
-  const [consecutiveSlots, setConsecutiveSlots] = useState([]);
+  const [selectedSlot, setSelectedSlot] = useState(null);
+  const [slots, setSlots] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [showConfirmation, setShowConfirmation] = useState(false);
-  const [paymentIntent, setPaymentIntent] = useState(null);
+  const [bookingId, setBookingId] = useState(null);
+  const [advancePaid, setAdvancePaid] = useState(false);
+  const [cardDialogOpen, setCardDialogOpen] = useState(false);
+  const [cardDetails, setCardDetails] = useState({
+    cardNumber: '',
+    expiryDate: '',
+    cvv: '',
+    name: ''
+  });
 
-  const steps = [
-    { label: 'Select Date', icon: <CalendarToday /> },
-    { label: 'Choose Time Slot', icon: <AccessTime /> },
-    { label: 'Payment', icon: <PaymentIcon /> },
-    { label: 'Confirm Booking', icon: <ConfirmationNumber /> }
-  ];
-
-  const sortSlots = (slots) => {
-    return [...slots].sort((a, b) => {
-      const timeA = new Date(`1970/01/01 ${a.startTime}`);
-      const timeB = new Date(`1970/01/01 ${b.startTime}`);
-      return timeA - timeB;
-    });
-  };
+  const totalAmount = station?.ratePerHour || 0;
+  const advanceAmount = totalAmount * 0.1; // 10% advance
 
   useEffect(() => {
-    if (open && station) {
-      fetchAvailableSlots();
+    if (open && selectedDate) {
+      fetchSlots();
     }
-  }, [open, station, selectedDate]);
+  }, [open, selectedDate]);
 
-  const fetchAvailableSlots = async () => {
+  const fetchSlots = async () => {
     try {
       setLoading(true);
-      const slots = await bookingService.getAvailableSlots(station._id, selectedDate);
-      setAvailableSlots(sortSlots(slots));
       setError('');
-    } catch (err) {
-      setError(err.message || 'Failed to fetch available slots');
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        setError('Please log in to book a station');
+        return;
+      }
+
+      if (!station?._id) {
+        setError('Invalid station selected');
+        return;
+      }
+
+      if (!selectedDate) {
+        setError('Please select a date first');
+        return;
+      }
+
+      const formattedDate = format(selectedDate, 'yyyy-MM-dd');
+      console.log('Fetching slots for date:', formattedDate);
+
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/bookings/stations/${station._id}/time-slots`,
+        {
+          params: {
+            date: formattedDate
+          },
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      console.log('Received slots response:', response.data);
+
+      if (!response.data) {
+        console.error('No response data received');
+        throw new Error('No response data received from server');
+      }
+
+      // Handle both array and object response formats
+      const slotsData = Array.isArray(response.data) ? response.data : response.data.slots;
+
+      if (!slotsData || !Array.isArray(slotsData)) {
+        console.error('Invalid slots data:', response.data);
+        throw new Error('Invalid slots data received from server');
+      }
+
+      // Transform the slots to match the expected format
+      const transformedSlots = slotsData.map(slot => {
+        if (!slot._id || !slot.startTime || !slot.endTime) {
+          console.error('Invalid slot data:', slot);
+          throw new Error('Invalid slot data received from server');
+        }
+        return {
+          _id: slot._id,
+          time: `${slot.startTime} - ${slot.endTime}`,
+          startTime: slot.startTime, // Add startTime for sorting
+          remainingSlots: slot.availableSpots || 0,
+          totalSlots: slot.totalSpots || 0,
+          status: slot.status || 'Available'
+        };
+      });
+
+      // Sort slots by start time
+      const sortedSlots = transformedSlots.sort((a, b) => {
+        const timeA = a.startTime.split(':')[0]; // Get hour from startTime
+        const timeB = b.startTime.split(':')[0];
+        return parseInt(timeA) - parseInt(timeB);
+      });
+
+      console.log('Transformed and sorted slots:', sortedSlots);
+      setSlots(sortedSlots);
+    } catch (error) {
+      console.error('Error fetching slots:', error);
+      if (error.response) {
+        console.error('Error response:', {
+          status: error.response.status,
+          data: error.response.data,
+          headers: error.response.headers
+        });
+        if (error.response.status === 404) {
+          setError('No slots available for this date');
+        } else {
+          setError(error.response.data.error || 'Failed to fetch available slots');
+        }
+      } else if (error.request) {
+        console.error('No response received:', error.request);
+        setError('No response from server. Please check your connection.');
+      } else {
+        console.error('Error setting up request:', error.message);
+        setError(error.message || 'Failed to fetch available slots');
+      }
     } finally {
       setLoading(false);
     }
@@ -111,62 +174,170 @@ const BookingDialog = ({ open, onClose, station }) => {
 
   const handleDateChange = (date) => {
     setSelectedDate(date);
-    setSelectedSlots([]);
+    setSelectedSlot(null);
   };
 
   const handleSlotSelect = (slot) => {
-    if (selectedSlots.some(s => s._id === slot._id)) {
-      setSelectedSlots(selectedSlots.filter(s => s._id !== slot._id));
-      return;
+    if (slot.remainingSlots > 0) {
+      setSelectedSlot({
+        ...slot,
+        remainingSlots: slot.remainingSlots
+      });
     }
-
-    if (selectedSlots.length === 0) {
-      setSelectedSlots([slot]);
-      return;
-    }
-
-    const sortedSlots = [...selectedSlots, slot].sort((a, b) => {
-      const timeA = new Date(`1970/01/01 ${a.startTime}`);
-      const timeB = new Date(`1970/01/01 ${b.startTime}`);
-      return timeA - timeB;
-    });
-
-    const isConsecutive = sortedSlots.some((currentSlot, index) => {
-      if (index === sortedSlots.length - 1) return false;
-      const nextSlot = sortedSlots[index + 1];
-      const currentEndTime = new Date(`1970/01/01 ${currentSlot.endTime}`);
-      const nextStartTime = new Date(`1970/01/01 ${nextSlot.startTime}`);
-      return currentEndTime.getTime() === nextStartTime.getTime();
-    });
-
-    if (!isConsecutive) {
-      setError('You can only select consecutive time slots');
-      return;
-    }
-
-    setSelectedSlots(sortedSlots);
-    setError('');
   };
 
-  const calculateTotalCost = () => {
-    if (selectedSlots.length === 0) return 0;
-    return selectedSlots.reduce((total, slot) => {
-      const startTime = new Date(`1970/01/01 ${slot.startTime}`);
-      const endTime = new Date(`1970/01/01 ${slot.endTime}`);
-      const hours = (endTime - startTime) / (1000 * 60 * 60);
-      return total + (station.ratePerHour * hours);
-    }, 0);
+  const handlePayment = async () => {
+    setCardDialogOpen(true);
   };
 
-  const calculateAdvancePayment = () => {
-    return calculateTotalCost() * 0.1; // 10% of total cost
+  const handleCardSubmit = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        setError('Please log in to book a station');
+        return;
+      }
+
+      if (!station?._id) {
+        setError('Invalid station selected');
+        return;
+      }
+
+      if (!selectedDate || !selectedSlot) {
+        setError('Please select a date and time slot');
+        return;
+      }
+
+      // First check if the user has any existing bookings for this time slot
+      try {
+        const checkResponse = await axios.get(
+          `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/bookings/my-bookings`,
+          {
+            headers: { 
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+
+        const existingBookings = checkResponse.data;
+        const hasOverlappingBooking = existingBookings.some(booking => {
+          if (booking.status === 'CANCELLED') return false;
+          const bookingDate = new Date(booking.date);
+          const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
+          const bookingDateStr = format(bookingDate, 'yyyy-MM-dd');
+          return bookingDateStr === selectedDateStr && 
+                 booking.timeSlot.startTime === selectedSlot.time.split(' - ')[0];
+        });
+
+        if (hasOverlappingBooking) {
+          setError('You already have a booking for this time slot. Please choose a different time.');
+          return;
+        }
+      } catch (checkError) {
+        console.error('Error checking existing bookings:', checkError);
+        // Continue with booking attempt even if check fails
+      }
+
+      // Format the booking data according to the API requirements
+      const bookingData = {
+        stationId: station._id,
+        timeSlotId: selectedSlot._id,
+        paymentDetails: {
+          amount: totalAmount,
+          advanceAmount: advanceAmount,
+          paymentId: `PAY-${Date.now()}`,
+          currency: 'LKR'
+        }
+      };
+
+      console.log('Creating booking:', bookingData);
+
+      const response = await axios.post(
+        `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/bookings`,
+        bookingData,
+        { 
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      console.log('Booking response:', response.data);
+
+      if (!response.data || !response.data.booking) {
+        console.error('Invalid response format:', response.data);
+        throw new Error('Invalid response from server');
+      }
+
+      const { booking } = response.data;
+      setBookingId(booking.id);
+      setAdvancePaid(true);
+      setActiveStep(3);
+
+      // Update the slots after successful booking
+      setSlots(prevSlots => 
+        prevSlots.map(slot => 
+          slot._id === selectedSlot._id 
+            ? { ...slot, remainingSlots: slot.remainingSlots - 1 }
+            : slot
+        )
+      );
+
+      setCardDialogOpen(false);
+    } catch (error) {
+      console.error('Error processing payment:', error);
+      
+      if (error.response) {
+        console.error('Error Response:', error.response.data);
+        
+        const errorMessage = error.response.data.error || error.response.data.message;
+        
+        if (errorMessage?.includes('already have a booking') || 
+            errorMessage?.includes('overlaps')) {
+          setError('You already have a booking for this time slot. Please choose a different time.');
+          // Reset the selected slot to allow user to choose another
+          setSelectedSlot(null);
+        } else {
+          switch (error.response.status) {
+            case 400:
+              setError(errorMessage || 'Invalid booking data. Please check your input.');
+              break;
+            case 401:
+              setError('Your session has expired. Please log in again.');
+              break;
+            case 403:
+              setError('You do not have permission to make this booking.');
+              break;
+            case 409:
+              setError('This time slot is no longer available. Please choose a different time.');
+              break;
+            case 500:
+              setError('An error occurred while processing your booking. Please try again later.');
+              break;
+            default:
+              setError(errorMessage || 'Failed to process booking');
+          }
+        }
+      } else if (error.request) {
+        setError('No response from server. Please check your connection.');
+      } else {
+        setError(error.message || 'Failed to process booking');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleNext = () => {
-    if (activeStep === steps.length - 1) {
-      handleBooking();
+    if (activeStep === 1) {
+      handlePayment();
     } else {
-      setActiveStep((prevStep) => prevStep + 1);
+    setActiveStep((prevStep) => prevStep + 1);
     }
   };
 
@@ -174,544 +345,673 @@ const BookingDialog = ({ open, onClose, station }) => {
     setActiveStep((prevStep) => prevStep - 1);
   };
 
-  const handleBooking = async () => {
-    if (selectedSlots.length === 0) {
-      setError('Please select at least one time slot');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const bookingData = {
-        stationId: station._id,
-        timeSlots: selectedSlots.map(slot => ({
-          timeSlotId: slot._id,
-          date: selectedDate.toISOString(),
-          startTime: slot.startTime,
-          endTime: slot.endTime
-        })),
-        date: selectedDate.toISOString(),
-        totalCost: calculateTotalCost(),
-        advancePayment: calculateAdvancePayment(),
-        paymentStatus: 'pending'
-      };
-
-      // Create payment intent with Stripe for advance payment
-      const response = await fetch('/api/create-payment-intent', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          amount: Math.round(calculateAdvancePayment() * 100), // Convert to cents
-          currency: 'lkr',
-        bookingData
-        }),
-      });
-
-      const { clientSecret } = await response.json();
-      setPaymentIntent(clientSecret);
-
-      // Initialize Stripe Elements
-      const stripe = await loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
-      const elements = stripe.elements();
-      const card = elements.create('card');
-      card.mount('#card-element');
-
-      // Handle payment submission
-      const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
-        payment_method: {
-          card,
-          billing_details: {
-            name: 'Customer Name', // You can collect this from a form
-          },
-        },
-      });
-
-      if (stripeError) {
-        setError(stripeError.message);
-        return;
-      }
-
-      // If payment successful, create booking
-      await bookingService.createBooking(bookingData);
-      setSuccess('Booking confirmed successfully! Advance payment received.');
-      setShowConfirmation(true);
-      setTimeout(() => {
-      onClose();
-      }, 2000);
-    } catch (err) {
-      setError(err.message || 'Failed to create booking');
-    } finally {
-      setLoading(false);
-    }
+  const handleClose = () => {
+    setActiveStep(0);
+    setSelectedDate(null);
+    setSelectedSlot(null);
+    setError('');
+    setBookingId(null);
+    setAdvancePaid(false);
+    setCardDialogOpen(false);
+    onClose();
   };
 
-  const findConsecutiveSlots = (slots) => {
-    const sortedSlots = sortSlots(slots);
-    const consecutive = [];
-    
-    for (let i = 0; i < sortedSlots.length; i++) {
-      const currentSlot = sortedSlots[i];
-      if (currentSlot.availableSpots === 0) continue;
-      
-      const currentEndTime = new Date(`1970/01/01 ${currentSlot.endTime}`);
-      const nextStartTime = new Date(`1970/01/01 ${sortedSlots[i + 1]?.startTime}`);
-      
-      if (nextStartTime && currentEndTime.getTime() === nextStartTime.getTime()) {
-        consecutive.push([currentSlot, sortedSlots[i + 1]]);
-      }
-    }
-    
-    return consecutive;
-  };
+  const renderStepContent = (step) => {
+    switch (step) {
+      case 0:
+  return (
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="subtitle1" gutterBottom>
+              Select a date for your booking
+            </Typography>
+            <LocalizationProvider dateAdapter={AdapterDateFns}>
+              <DatePicker
+                value={selectedDate}
+                onChange={handleDateChange}
+                minDate={new Date()}
+                maxDate={addDays(new Date(), 30)}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    fullWidth
+                    sx={{ mt: 2 }}
+                  />
+                )}
+              />
+            </LocalizationProvider>
+          </Box>
+        );
 
-  useEffect(() => {
-    if (availableSlots.length > 0) {
-      setConsecutiveSlots(findConsecutiveSlots(availableSlots));
-    }
-  }, [availableSlots]);
+      case 1:
+        return (
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="subtitle1" gutterBottom>
+              Available Time Slots
+            </Typography>
+            {renderTimeSlots()}
+          </Box>
+        );
 
-  const TimeSlotCard = ({ slot }) => {
-    const isSelected = selectedSlots.some(s => s._id === slot._id);
-    const isAvailable = slot.availableSpots > 0;
-    const isConsecutive = consecutiveSlots.some(pair => 
-      pair.some(s => s._id === slot._id)
-    );
-    
-    const canBeSelected = selectedSlots.length === 0 || 
-      selectedSlots.some(selectedSlot => {
-        const selectedEndTime = new Date(`1970/01/01 ${selectedSlot.endTime}`);
-        const slotStartTime = new Date(`1970/01/01 ${slot.startTime}`);
-        const selectedStartTime = new Date(`1970/01/01 ${selectedSlot.startTime}`);
-        const slotEndTime = new Date(`1970/01/01 ${slot.endTime}`);
-        
-        return selectedEndTime.getTime() === slotStartTime.getTime() ||
-               selectedStartTime.getTime() === slotEndTime.getTime();
-      });
-    
-    return (
-      <Zoom in={true} style={{ transitionDelay: '100ms' }}>
-        <Card
-          onClick={() => isAvailable && canBeSelected && handleSlotSelect(slot)}
-          sx={{
-            cursor: isAvailable && canBeSelected ? 'pointer' : 'not-allowed',
-            bgcolor: isSelected 
-              ? alpha(theme.palette.primary.main, 0.08) 
-              : isAvailable && canBeSelected
-                ? 'background.paper' 
-                : alpha(theme.palette.grey[500], 0.08),
-            border: isSelected 
-              ? `2px solid ${theme.palette.primary.main}` 
-              : isConsecutive && canBeSelected
-                ? `1px solid ${theme.palette.success.main}`
-                : '1px solid rgba(0, 0, 0, 0.12)',
-            borderRadius: 2,
-            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            '&:hover': isAvailable && canBeSelected ? {
-              transform: 'translateY(-4px)',
-              boxShadow: theme.shadows[8],
-              bgcolor: isSelected 
-                ? alpha(theme.palette.primary.main, 0.12) 
-                : alpha(theme.palette.primary.main, 0.04)
-            } : {},
-            position: 'relative',
-            overflow: 'hidden',
-            '&::before': {
-              content: '""',
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              height: '4px',
-              background: isAvailable && canBeSelected
-                ? isConsecutive
-                  ? `linear-gradient(90deg, ${theme.palette.success.main}, ${theme.palette.success.light})`
-                  : `linear-gradient(90deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`
-                : theme.palette.grey[400],
-              opacity: isSelected ? 1 : 0.5
-            }
-          }}
-        >
-          <CardContent sx={{ p: 2 }}>
+      case 2:
+        return renderPaymentSection();
+
+      case 3:
+        return (
+          <Box sx={{ mt: 2 }}>
             <Box sx={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'space-between',
-              gap: 1
+              textAlign: 'center', 
+              mb: 4,
+              position: 'relative'
             }}>
-              <Box sx={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: 1,
-                flex: 1
-              }}>
-                <AccessTime sx={{ 
-                  fontSize: '1.2rem',
-                  color: isAvailable && canBeSelected ? theme.palette.primary.main : theme.palette.grey[400]
-                }} />
-                <Box>
-                  <Typography
-                    variant="subtitle1"
-                    color={isAvailable && canBeSelected ? 'text.primary' : 'text.disabled'}
-                    sx={{ fontWeight: 500 }}
-                  >
-                    {slot.startTime} - {slot.endTime}
-                  </Typography>
-                  <Typography 
-                    variant="caption" 
-                    color={isAvailable && canBeSelected ? 'text.secondary' : 'text.disabled'}
-                  >
-                    {new Date(selectedDate).toLocaleDateString('en-US', { 
-                      weekday: 'short', 
-                      month: 'short', 
-                      day: 'numeric' 
-                    })}
+              <Box sx={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: '100%',
+                height: '100%',
+                background: `radial-gradient(circle, ${alpha(theme.palette.success.main, 0.1)} 0%, transparent 70%)`,
+                zIndex: 0
+              }} />
+              <CheckCircle 
+                color="success" 
+                sx={{ 
+                  fontSize: 80,
+                  mb: 2,
+                  position: 'relative',
+                  zIndex: 1
+                }} 
+              />
+              <Typography 
+                variant="h5" 
+                sx={{ 
+                  mt: 2,
+                  fontWeight: 600,
+                  color: theme.palette.success.main,
+                  position: 'relative',
+                  zIndex: 1
+                }}
+              >
+                Booking Confirmed!
+              </Typography>
+              <Typography 
+                variant="body2" 
+                color="text.secondary"
+                sx={{ 
+                  mt: 1,
+                  position: 'relative',
+                  zIndex: 1
+                }}
+              >
+                Your charging station has been successfully booked
+              </Typography>
+            </Box>
+
+            <Paper 
+              sx={{ 
+                p: 3,
+                background: 'white',
+                borderRadius: 2,
+                boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+                position: 'relative',
+                overflow: 'hidden'
+              }}
+            >
+              {/* Background Pattern */}
+              <Box sx={{
+                position: 'absolute',
+                top: 0,
+                right: 0,
+                width: '200px',
+                height: '200px',
+                background: `radial-gradient(circle, ${alpha(theme.palette.primary.main, 0.05)} 0%, transparent 70%)`,
+                transform: 'translate(30%, -30%)',
+                zIndex: 0
+              }} />
+
+              {/* Booking Details */}
+              <Box sx={{ position: 'relative', zIndex: 1 }}>
+                <Grid container spacing={3}>
+                  {/* Left Column */}
+                  <Grid item xs={12} md={6}>
+                    <Box sx={{ mb: 3 }}>
+                      <Typography 
+                        variant="subtitle2" 
+                        color="text.secondary"
+                        sx={{ mb: 1 }}
+                      >
+                        Booking Reference
+                      </Typography>
+                      <Typography 
+                        variant="h6" 
+                        sx={{ 
+                          fontWeight: 600,
+                          color: theme.palette.primary.main,
+                          fontFamily: 'monospace',
+                          letterSpacing: 1
+                        }}
+                      >
+                        {bookingId}
+                      </Typography>
+                    </Box>
+
+                    <Box sx={{ mb: 3 }}>
+                      <Typography 
+                        variant="subtitle2" 
+                        color="text.secondary"
+                        sx={{ mb: 1 }}
+                      >
+                        Station Details
+                      </Typography>
+                      <Box sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: 1,
+                        mb: 1
+                      }}>
+                        <Business color="primary" fontSize="small" />
+                        <Typography variant="body1">
+                          {station.name}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: 1
+                      }}>
+                        <LocationOn color="action" fontSize="small" />
+                        <Typography variant="body2" color="text.secondary">
+                          {station.location?.address || 'Location not available'}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Grid>
+
+                  {/* Right Column */}
+                  <Grid item xs={12} md={6}>
+                    <Box sx={{ mb: 3 }}>
+                      <Typography 
+                        variant="subtitle2" 
+                        color="text.secondary"
+                        sx={{ mb: 1 }}
+                      >
+                        Booking Schedule
+                      </Typography>
+                      <Box sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: 1,
+                        mb: 1
+                      }}>
+                        <CalendarToday color="primary" fontSize="small" />
+                        <Typography variant="body1">
+                          {format(selectedDate, 'MMMM dd, yyyy')}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: 1
+                      }}>
+                        <Schedule color="action" fontSize="small" />
+                        <Typography variant="body2" color="text.secondary">
+                          {selectedSlot.time}
+                        </Typography>
+                      </Box>
+                    </Box>
+
+                    <Box>
+                      <Typography 
+                        variant="subtitle2" 
+                        color="text.secondary"
+                        sx={{ mb: 1 }}
+                      >
+                        Payment Status
+                      </Typography>
+                      <Box sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: 1,
+                        mb: 1
+                      }}>
+                        <Payment color="success" fontSize="small" />
+                        <Typography variant="body1" color="success.main">
+                          Advance Paid
+                        </Typography>
+                      </Box>
+                      <Typography variant="body2" color="text.secondary">
+                        LKR {advanceAmount.toFixed(2)} (10% of total)
+                      </Typography>
+                    </Box>
+                  </Grid>
+                </Grid>
+
+                {/* Bottom Section */}
+                <Box sx={{ 
+                  mt: 3, 
+                  pt: 3, 
+                  borderTop: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1
+                }}>
+                  <BatteryChargingFull color="primary" fontSize="small" />
+                  <Typography variant="body2" color="text.secondary">
+                    Please arrive 5 minutes before your scheduled time
                   </Typography>
                 </Box>
               </Box>
-              <Box sx={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: 1
-              }}>
-                {isConsecutive && (
-                  <Chip
-                    size="small"
-                    label="Consecutive"
-                    color="success"
-                    sx={{ 
-                      height: 24,
-                      '& .MuiChip-label': { px: 1 }
-                    }}
-                  />
-                )}
-                <Badge
-                  badgeContent={slot.availableSpots}
-                  color={isAvailable ? 'success' : 'error'}
-                  sx={{ 
-                    '& .MuiBadge-badge': { 
-                      fontSize: '0.75rem',
-                      height: '20px',
-                      minWidth: '20px',
-                      padding: '0 4px',
-                      borderRadius: '10px',
-                      background: isAvailable 
-                        ? `linear-gradient(45deg, ${theme.palette.success.main}, ${theme.palette.success.light})`
-                        : `linear-gradient(45deg, ${theme.palette.error.main}, ${theme.palette.error.light})`
-                    }
-                  }}
-                >
-                  <Box sx={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background: isAvailable 
-                      ? alpha(theme.palette.success.main, 0.1)
-                      : alpha(theme.palette.error.main, 0.1),
-                    border: `2px solid ${isAvailable ? theme.palette.success.main : theme.palette.error.main}`,
-                    transition: 'all 0.3s ease'
-                  }}>
-                    <Typography 
-                      variant="caption" 
-                      color={isAvailable ? 'success.main' : 'error.main'}
-                      sx={{ fontWeight: 600 }}
-                    >
-                      {isAvailable ? 'Open' : 'Full'}
-                    </Typography>
-                  </Box>
-                </Badge>
-              </Box>
-            </Box>
-          </CardContent>
-        </Card>
-      </Zoom>
-    );
+            </Paper>
+          </Box>
+        );
+
+      default:
+        return null;
+    }
   };
 
-  const PaymentCard = ({ icon, title, selected, onClick }) => (
-    <Card
-      onClick={onClick}
-      sx={{
-        cursor: 'pointer',
-        bgcolor: selected ? alpha(theme.palette.primary.main, 0.08) : 'background.paper',
-        border: selected ? `2px solid ${theme.palette.primary.main}` : '1px solid rgba(0, 0, 0, 0.12)',
-        transition: 'all 0.2s ease-in-out',
-        '&:hover': {
-          transform: 'translateY(-2px)',
-          boxShadow: theme.shadows[4],
-        },
-      }}
-    >
-      <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-        {icon}
-        <Typography variant="body1">{title}</Typography>
-      </CardContent>
-    </Card>
+  const renderTimeSlots = () => (
+    <Box sx={{ mt: 2 }}>
+      <Typography variant="h6" component="div" gutterBottom>
+        Available Time Slots
+      </Typography>
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+          <CircularProgress />
+        </Box>
+      ) : slots.length === 0 ? (
+        <Alert severity="info">No slots available for this date</Alert>
+      ) : (
+        <Grid container spacing={2}>
+          {slots.map((slot) => (
+            <Grid item xs={12} sm={6} md={4} key={slot._id}>
+              <Paper
+                sx={{
+                  p: 2,
+                  cursor: slot.remainingSlots > 0 ? 'pointer' : 'not-allowed',
+                  bgcolor: selectedSlot?._id === slot._id 
+                    ? 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)'
+                    : 'background.paper',
+                  border: selectedSlot?._id === slot._id 
+                    ? `2px solid ${theme.palette.primary.main}`
+                    : '2px solid transparent',
+                  borderRadius: 2,
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+                  '&:hover': {
+                    bgcolor: slot.remainingSlots > 0 
+                      ? 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)'
+                      : 'background.paper',
+                  },
+                }}
+                onClick={() => handleSlotSelect(slot)}
+              >
+                <Typography variant="subtitle1" component="div" gutterBottom>
+                  {slot.time}
+                </Typography>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Chip
+                    label={`${slot.remainingSlots}/${slot.totalSlots} spots left`}
+                    color={slot.remainingSlots > 0 ? 'success' : 'error'}
+                    size="small"
+                  />
+                  <Typography variant="body2" component="span" color="text.secondary">
+                    {slot.status}
+                  </Typography>
+                </Box>
+              </Paper>
+            </Grid>
+          ))}
+        </Grid>
+      )}
+    </Box>
   );
 
-  return (
+  const renderPaymentSection = () => (
+    <Box sx={{ mt: 2 }}>
+      <Typography variant="subtitle1" gutterBottom>
+        Payment Details
+      </Typography>
+      <Paper 
+        sx={{ 
+          p: 3,
+          background: 'white',
+          borderRadius: 2,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
+        }}
+      >
+        {/* Invoice Header */}
+        <Box sx={{ mb: 3, textAlign: 'center' }}>
+          <Typography variant="h5" sx={{ fontWeight: 600, color: theme.palette.primary.main }}>
+            INVOICE
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {format(new Date(), 'MMMM dd, yyyy')}
+          </Typography>
+        </Box>
+
+        <Divider sx={{ my: 2 }} />
+
+        {/* Station Details */}
+        <Box sx={{ mb: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <Business color="primary" />
+            <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
+              {station.name}
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <LocationOn color="action" />
+            <Typography variant="body2" color="text.secondary">
+              {station.location?.address || 'Location not available'}
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Schedule color="action" />
+            <Typography variant="body2" color="text.secondary">
+              {selectedSlot?.time}
+            </Typography>
+          </Box>
+        </Box>
+
+        <Divider sx={{ my: 2 }} />
+
+        {/* Payment Details */}
+        <Grid container spacing={2}>
+          <Grid item xs={12}>
+            <Box sx={{ 
+              p: 2, 
+              bgcolor: alpha(theme.palette.primary.main, 0.05),
+              borderRadius: 1
+            }}>
+              <Typography variant="subtitle2" color="primary" gutterBottom>
+                Payment Summary
+              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <Typography variant="body2">Total Amount:</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                  LKR {totalAmount.toFixed(2)}
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <Typography variant="body2">Advance Payment (10%):</Typography>
+                <Typography variant="body2" color="primary" sx={{ fontWeight: 500 }}>
+                  LKR {advanceAmount.toFixed(2)}
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography variant="body2">Remaining Amount:</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                  LKR {(totalAmount - advanceAmount).toFixed(2)}
+                </Typography>
+              </Box>
+            </Box>
+          </Grid>
+        </Grid>
+
+        <Box sx={{ mt: 3, textAlign: 'center' }}>
+          <Typography variant="body2" color="text.secondary">
+            Please proceed with the advance payment to confirm your booking
+          </Typography>
+        </Box>
+      </Paper>
+    </Box>
+  );
+
+  const renderCardPaymentDialog = () => (
     <Dialog 
-      open={open} 
-      onClose={onClose} 
-      maxWidth="md" 
+      open={cardDialogOpen} 
+      onClose={() => setCardDialogOpen(false)}
+      maxWidth="sm"
       fullWidth
       PaperProps={{
         sx: {
-          borderRadius: 3,
-          background: `linear-gradient(145deg, ${alpha(theme.palette.background.paper, 0.9)}, ${alpha(theme.palette.background.paper, 0.95)})`,
-          backdropFilter: 'blur(10px)',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+          borderRadius: 2,
+          background: 'white',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
         }
       }}
     >
-      <DialogTitle sx={{ 
-        background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
-        color: 'white',
-        py: 2,
-        px: 3,
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center'
-      }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <BatteryChargingFull />
-          <Typography variant="h6">Book Charging Session</Typography>
-        </Box>
-        <IconButton onClick={onClose} sx={{ color: 'white' }}>
-          <CloseIcon />
-        </IconButton>
-      </DialogTitle>
-
-      <DialogContent sx={{ p: 3 }}>
-        <Stepper activeStep={activeStep} alternativeLabel sx={{ mb: 4 }}>
-          {steps.map((step, index) => (
-            <Step key={step.label}>
-              <StepLabel StepIconProps={{ icon: step.icon }}>
-                {step.label}
-              </StepLabel>
-            </Step>
-          ))}
-        </Stepper>
-
-        {activeStep === 0 && (
-          <Box sx={{ textAlign: 'center', py: 4 }}>
-                    <LocalizationProvider dateAdapter={AdapterDateFns}>
-                      <DatePicker
-                label="Select Date"
-                        value={selectedDate}
-                        onChange={handleDateChange}
-                        renderInput={(params) => (
-                          <TextField
-                            {...params}
-                            fullWidth
-                            sx={{
-                              '& .MuiOutlinedInput-root': {
-                        borderRadius: 2,
-                        '&:hover .MuiOutlinedInput-notchedOutline': {
-                          borderColor: theme.palette.primary.main,
-                        },
-                      },
-                            }}
-                          />
-                        )}
-                      />
-                    </LocalizationProvider>
-          </Box>
-        )}
-
-        {activeStep === 1 && (
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="h6" gutterBottom>
-                          Available Time Slots
-                        </Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
-                    {loading ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-                        <CircularProgress />
-                      </Box>
-              ) : availableSlots.length > 0 ? (
-                availableSlots.map((slot) => (
-                  <TimeSlotCard key={slot._id} slot={slot} />
-                ))
-              ) : (
-                <Alert severity="info">No available slots for this date</Alert>
-              )}
-            </Box>
-          </Box>
-        )}
-
-        {activeStep === 2 && (
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Payment Details
+      <DialogTitle>
+        <Box display="flex" justifyContent="space-between" alignItems="center">
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <CreditCard color="primary" />
+            <Typography variant="h6">
+              Secure Payment
             </Typography>
-            <Grid container spacing={3}>
-              <Grid item xs={12}>
-                <Paper sx={{ p: 3, mb: 3, bgcolor: alpha(theme.palette.primary.main, 0.05) }}>
-                  <Typography variant="h6" gutterBottom>
-                    Payment Summary
-                  </Typography>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12}>
-                      <Typography variant="subtitle1" color="text.secondary">
-                        Selected Time Slots
-                      </Typography>
-                      {selectedSlots.map((slot, index) => (
-                        <Typography key={slot._id} variant="body1">
-                          {index + 1}. {slot.startTime} - {slot.endTime}
-                        </Typography>
-                      ))}
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography color="text.secondary">Rate per Hour</Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography align="right">LKR {station.ratePerHour.toLocaleString()}</Typography>
-                    </Grid>
-                    <Grid item xs={12}>
-                      <Divider sx={{ my: 1 }} />
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="h6">Total Cost</Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="h6" align="right" color="primary">
-                        LKR {calculateTotalCost().toLocaleString()}
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={12}>
-                      <Divider sx={{ my: 1 }} />
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="subtitle1" color="text.secondary">
-                        Advance Payment (10%)
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="subtitle1" align="right" color="primary">
-                        LKR {calculateAdvancePayment().toLocaleString()}
-                        </Typography>
-                    </Grid>
-                    <Grid item xs={12}>
-                      <Alert severity="info" sx={{ mt: 2 }}>
-                        Please pay the advance payment of 10% to confirm your booking. The remaining amount should be paid at the station.
-                      </Alert>
-                    </Grid>
-                  </Grid>
-                </Paper>
+          </Box>
+          <IconButton onClick={() => setCardDialogOpen(false)} size="small">
+            <CloseIcon />
+          </IconButton>
+        </Box>
+      </DialogTitle>
+      <DialogContent>
+        <Box sx={{ mt: 2 }}>
+          {/* Payment Summary */}
+          <Paper 
+            sx={{ 
+              p: 2, 
+              mb: 3,
+              background: alpha(theme.palette.primary.main, 0.05),
+              borderRadius: 1
+            }}
+          >
+            <Typography variant="subtitle2" color="primary" gutterBottom>
+              Payment Summary
+            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+              <Typography variant="body2">Advance Payment:</Typography>
+              <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                LKR {advanceAmount.toFixed(2)}
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography variant="body2">Remaining Amount:</Typography>
+              <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                LKR {(totalAmount - advanceAmount).toFixed(2)}
+              </Typography>
+            </Box>
+          </Paper>
+
+          {/* Card Details Form */}
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="subtitle2" gutterBottom>
+              Card Details
+            </Typography>
+            <TextField
+              fullWidth
+              label="Card Number"
+              value={cardDetails.cardNumber}
+              onChange={(e) => {
+                const value = e.target.value.replace(/\D/g, '').slice(0, 16);
+                const formatted = value.replace(/(\d{4})/g, '$1 ').trim();
+                setCardDetails({ ...cardDetails, cardNumber: formatted });
+              }}
+              placeholder="1234 5678 9012 3456"
+              sx={{ mb: 2 }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <CreditCard />
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <Grid container spacing={2}>
+              <Grid item xs={6}>
+                <TextField
+                  fullWidth
+                  label="Expiry Date"
+                  value={cardDetails.expiryDate}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '').slice(0, 4);
+                    const formatted = value.replace(/(\d{2})(\d{0,2})/, '$1/$2');
+                    setCardDetails({ ...cardDetails, expiryDate: formatted });
+                  }}
+                  placeholder="MM/YY"
+                  sx={{ mb: 2 }}
+                />
               </Grid>
-            <Grid item xs={12}>
-                <Box sx={{ 
-                  p: 2, 
-                  border: '1px solid rgba(0, 0, 0, 0.12)',
-                  borderRadius: 1,
-                  bgcolor: 'background.paper'
-                }}>
-                  <div id="card-element" />
-              </Box>
+              <Grid item xs={6}>
+                <TextField
+                  fullWidth
+                  label="CVV"
+                  value={cardDetails.cvv}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '').slice(0, 3);
+                    setCardDetails({ ...cardDetails, cvv: value });
+                  }}
+                  placeholder="123"
+                  sx={{ mb: 2 }}
+                  type="password"
+                />
               </Grid>
             </Grid>
+            <TextField
+              fullWidth
+              label="Cardholder Name"
+              value={cardDetails.name}
+              onChange={(e) => setCardDetails({ ...cardDetails, name: e.target.value })}
+              placeholder="John Doe"
+              sx={{ mb: 2 }}
+            />
           </Box>
-        )}
 
-        {activeStep === 3 && (
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Confirm Booking
+          {/* Security Notice */}
+          <Box sx={{ 
+            p: 2, 
+            bgcolor: alpha(theme.palette.info.main, 0.1),
+            borderRadius: 1,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1
+          }}>
+            <CheckCircle color="info" fontSize="small" />
+            <Typography variant="body2" color="text.secondary">
+              Your payment information is secure and encrypted
             </Typography>
-            <Paper sx={{ p: 3, mb: 3, bgcolor: alpha(theme.palette.primary.main, 0.05) }}>
-              <Grid container spacing={2}>
-                <Grid item xs={12}>
-                  <Typography variant="subtitle1" color="text.secondary">
-                    Station
-                  </Typography>
-                  <Typography variant="body1">{station.name}</Typography>
-                </Grid>
-                <Grid item xs={12}>
-                  <Typography variant="subtitle1" color="text.secondary">
-                    Date & Time
-                  </Typography>
-                  <Typography variant="body1">
-                    {selectedDate.toLocaleDateString()} at {selectedSlots.map(slot => slot.startTime).join(' - ')}
-                  </Typography>
-                </Grid>
-                <Grid item xs={6}>
-                  <Typography variant="subtitle1" color="text.secondary">
-                    Total Cost
-                  </Typography>
-                </Grid>
-                <Grid item xs={6}>
-                  <Typography variant="subtitle1" align="right">
-                    LKR {calculateTotalCost().toLocaleString()}
-                  </Typography>
-                </Grid>
-                <Grid item xs={6}>
-                  <Typography variant="subtitle1" color="text.secondary">
-                    Advance Payment
-                  </Typography>
-                </Grid>
-                <Grid item xs={6}>
-                  <Typography variant="subtitle1" align="right" color="primary">
-                    LKR {calculateAdvancePayment().toLocaleString()}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12}>
-                  <Alert severity="info" sx={{ mt: 2 }}>
-                    Please pay the remaining amount at the station before starting your charging session.
-                  </Alert>
-                </Grid>
-        </Grid>
-            </Paper>
           </Box>
-        )}
-
-        {error && (
-          <Alert severity="error" sx={{ mt: 2 }}>
-            {error}
-          </Alert>
-        )}
+        </Box>
       </DialogContent>
-
-      <DialogActions sx={{ p: 3, pt: 0 }}>
+      <DialogActions sx={{ p: 2 }}>
         <Button 
-          onClick={handleBack}
-          disabled={activeStep === 0}
-          startIcon={<ArrowBack />}
+          onClick={() => setCardDialogOpen(false)}
+          sx={{ color: 'text.secondary' }}
         >
-          Back
+          Cancel
         </Button>
         <Button
           variant="contained"
-          onClick={handleNext}
-          disabled={loading || 
-            (activeStep === 1 && selectedSlots.length === 0)}
-          endIcon={activeStep === steps.length - 1 ? <ConfirmationNumber /> : <ArrowForward />}
-          sx={{ 
-            background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
+          onClick={handleCardSubmit}
+          disabled={!cardDetails.cardNumber || !cardDetails.expiryDate || !cardDetails.cvv || !cardDetails.name}
+          sx={{
+            background: 'linear-gradient(135deg, #4caf50 0%, #2e7d32 100%)',
             '&:hover': {
-              background: `linear-gradient(45deg, ${theme.palette.primary.dark}, ${theme.palette.primary.main})`,
+              background: 'linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%)',
             },
+            minWidth: 120
           }}
         >
-          {activeStep === steps.length - 1 ? 'Confirm Booking' : 'Next'}
+          Pay LKR {advanceAmount.toFixed(2)}
         </Button>
       </DialogActions>
-
-      <Snackbar
-        open={!!success}
-        autoHideDuration={6000}
-        onClose={() => setSuccess('')}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert onClose={() => setSuccess('')} severity="success" sx={{ width: '100%' }}>
-          {success}
-        </Alert>
-      </Snackbar>
     </Dialog>
+  );
+
+  return (
+    <>
+      <Dialog 
+        open={open} 
+        onClose={handleClose}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            background: 'linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%)',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+          }
+        }}
+      >
+        <DialogTitle>
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Typography variant="h6">
+              Book Charging Station
+            </Typography>
+            <IconButton onClick={handleClose} size="small">
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+
+        <DialogContent>
+          <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
+            {steps.map((label) => (
+              <Step key={label}>
+                <StepLabel>{label}</StepLabel>
+              </Step>
+            ))}
+          </Stepper>
+
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
+
+          {loading ? (
+            <Box display="flex" justifyContent="center" p={3}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            renderStepContent(activeStep)
+        )}
+      </DialogContent>
+
+        <DialogActions sx={{ p: 2, pt: 0 }}>
+          {activeStep > 0 && activeStep < 3 && (
+          <Button onClick={handleBack}>
+            Back
+          </Button>
+        )}
+          {activeStep < 3 ? (
+          <Button
+            variant="contained"
+            onClick={handleNext}
+            disabled={
+                (activeStep === 0 && !selectedDate) ||
+                (activeStep === 1 && !selectedSlot) ||
+                loading
+              }
+              sx={{
+                background: 'linear-gradient(135deg, #4caf50 0%, #2e7d32 100%)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%)',
+                }
+              }}
+            >
+              {activeStep === 2 ? 'Pay Now' : 'Next'}
+            </Button>
+          ) : (
+            <Button
+              variant="contained"
+              onClick={() => {
+                handleClose();
+                onSuccess();
+              }}
+              sx={{
+                background: 'linear-gradient(135deg, #4caf50 0%, #2e7d32 100%)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%)',
+                }
+              }}
+            >
+              Done
+          </Button>
+        )}
+      </DialogActions>
+    </Dialog>
+      {renderCardPaymentDialog()}
+    </>
   );
 };
 

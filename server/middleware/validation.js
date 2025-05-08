@@ -8,7 +8,17 @@ const validateStationData = (req, res, next) => {
 
   // Check required fields
   if (!name || !description || !numberOfConnectors || !ratePerHour || !openingTime || !closingTime) {
-    return res.status(400).json({ message: 'All fields are required' });
+    return res.status(400).json({ message: 'Name, description, number of connectors, rate per hour, opening time, and closing time are required' });
+  }
+
+  // Validate number of connectors
+  if (numberOfConnectors < 1) {
+    return res.status(400).json({ message: 'Number of connectors must be at least 1' });
+  }
+
+  // Validate rate per hour
+  if (ratePerHour < 0) {
+    return res.status(400).json({ message: 'Rate per hour must be a positive number' });
   }
 
   // Validate time format
@@ -22,16 +32,6 @@ const validateStationData = (req, res, next) => {
   const closing = new Date(`2000-01-01 ${closingTime}`);
   if (opening >= closing) {
     return res.status(400).json({ message: 'Opening time must be before closing time' });
-  }
-
-  // Validate number of connectors
-  if (numberOfConnectors < 1) {
-    return res.status(400).json({ message: 'Number of connectors must be at least 1' });
-  }
-
-  // Validate rate per hour
-  if (ratePerHour < 0) {
-    return res.status(400).json({ message: 'Rate per hour must be a positive number' });
   }
 
   // Validate status if provided

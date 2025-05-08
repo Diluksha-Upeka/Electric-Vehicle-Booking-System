@@ -18,6 +18,11 @@ const timeSlotSchema = new mongoose.Schema({
     type: String, // Format: "HH:mm AM/PM"
     required: true
   },
+  totalSpots: {
+    type: Number,
+    required: true,
+    min: 1
+  },
   availableSpots: {
     type: Number,
     required: true,

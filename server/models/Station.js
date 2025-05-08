@@ -17,14 +17,6 @@ const stationSchema = new mongoose.Schema({
       required: true
     }
   },
-  openingTime: {
-    type: String, // Format: "HH:mm AM/PM"
-    required: true
-  },
-  closingTime: {
-    type: String, // Format: "HH:mm AM/PM"
-    required: true
-  },
   totalChargers: {
     type: Number,
     required: true,
