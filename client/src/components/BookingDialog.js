@@ -41,6 +41,22 @@ import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { format, addDays, isBefore, isAfter, setHours, setMinutes } from 'date-fns';
 import axios from 'axios';
 
+// Create axios instance with base URL
+const api = axios.create({
+  baseURL: process.env.REACT_APP_API_URL ? process.env.REACT_APP_API_URL.replace(/\/+$/, '') : '',
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
+
+// Add request interceptor to handle double slashes
+api.interceptors.request.use(config => {
+  if (config.url) {
+    config.url = config.url.replace(/\/+/g, '/');
+  }
+  return config;
+});
+
 const steps = ['Select Date', 'Choose Time Slot', 'Payment', 'Confirmation'];
 
 const BookingDialog = ({ open, onClose, station, onSuccess }) => {
@@ -94,15 +110,14 @@ const BookingDialog = ({ open, onClose, station, onSuccess }) => {
       const formattedDate = format(selectedDate, 'yyyy-MM-dd');
       console.log('Fetching slots for date:', formattedDate);
 
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/bookings/stations/${station._id}/time-slots`,
+      const response = await api.get(
+        `api/bookings/stations/${station._id}/time-slots`,
         {
           params: {
             date: formattedDate
           },
           headers: { 
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
+            Authorization: `Bearer ${token}`
           }
         }
       );
@@ -213,8 +228,8 @@ const BookingDialog = ({ open, onClose, station, onSuccess }) => {
 
       // First check if the user has any existing bookings for this time slot
       try {
-        const checkResponse = await axios.get(
-          `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/bookings/my-bookings`,
+        const checkResponse = await api.get(
+          `api/bookings/my-bookings`,
           {
             headers: { 
               'Authorization': `Bearer ${token}`,
@@ -256,8 +271,8 @@ const BookingDialog = ({ open, onClose, station, onSuccess }) => {
 
       console.log('Creating booking:', bookingData);
 
-      const response = await axios.post(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/bookings`,
+      const response = await api.post(
+        `api/bookings`,
         bookingData,
         { 
           headers: { 
