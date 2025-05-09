@@ -13,8 +13,9 @@ const server = http.createServer(app);
 const allowedOrigins = [
   process.env.CLIENT_URL,
   "http://localhost:3000",
-  "https://electric-vehicle-booking-system.vercel.app",  // Remove trailing slash
-  "https://evcbs-backend.onrender.com"  // Add backend URL
+  "https://electric-vehicle-booking-system.vercel.app",
+  "https://electric-vehicle-booking-sy-git-90e642-diluksha-upekas-projects.vercel.app",
+  "https://evcbs-backend.onrender.com"
 ].filter(Boolean); // Remove any undefined values
 
 // Log allowed origins for debugging
