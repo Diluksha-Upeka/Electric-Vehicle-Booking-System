@@ -1,15 +1,14 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { Box, Typography, CircularProgress, IconButton, Tooltip, List, ListItem, ListItemText, ListItemButton, Paper, Divider, Button } from '@mui/material';
-import { MyLocation, Refresh, LocationOn, ElectricCar, BookOnline } from '@mui/icons-material';
+import { Box, Typography, CircularProgress, IconButton, Tooltip, List, ListItem, ListItemText, ListItemButton, Paper, Divider, Button, Chip } from '@mui/material';
+import { MyLocation, Refresh, LocationOn, ElectricCar, BookOnline, AttachMoney, EvStation, ListAlt } from '@mui/icons-material';
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
-import { useTheme } from '@mui/material/styles';
+import { useTheme, alpha } from '@mui/material/styles';
 import RadiusFilter from '../RadiusFilter';
-import { alpha } from '@mui/material/styles';
 
 // Define libraries as a static constant
 const libraries = ['places', 'marker'];
 
-// Define map styles for a more enterprise look with eco-friendly colors
+// Update map styles for a more modern enterprise look
 const mapStyles = [
   {
     featureType: 'all',
@@ -214,13 +213,33 @@ const MapSection = ({
   };
 
   const customMarkerIcon = useMemo(() => ({
-    path: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z",
-    fillColor: '#2E7D32',
-    fillOpacity: 1,
-    strokeWeight: 2,
-    strokeColor: "#FFFFFF",
-    scale: 1.5,
-    anchor: isLoaded && window.google?.maps ? new window.google.maps.Point(12, 22) : undefined
+    active: {
+      path: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z",
+      fillColor: '#2E7D32',
+      fillOpacity: 1,
+      strokeWeight: 2,
+      strokeColor: "#FFFFFF",
+      scale: 1.5,
+      anchor: isLoaded && window.google?.maps ? new window.google.maps.Point(12, 22) : undefined
+    },
+    inactive: {
+      path: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z",
+      fillColor: '#D32F2F',
+      fillOpacity: 1,
+      strokeWeight: 2,
+      strokeColor: "#FFFFFF",
+      scale: 1.5,
+      anchor: isLoaded && window.google?.maps ? new window.google.maps.Point(12, 22) : undefined
+    },
+    maintenance: {
+      path: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z",
+      fillColor: '#F57C00',
+      fillOpacity: 1,
+      strokeWeight: 2,
+      strokeColor: "#FFFFFF",
+      scale: 1.5,
+      anchor: isLoaded && window.google?.maps ? new window.google.maps.Point(12, 22) : undefined
+    }
   }), [isLoaded]);
 
   const userMarkerIcon = useMemo(() => ({
@@ -239,7 +258,11 @@ const MapSection = ({
   };
 
   const handleMarkerClick = (station) => {
-    setSelectedMarker(station);
+    if (selectedMarker?._id === station._id) {
+      setSelectedMarker(null);
+    } else {
+      setSelectedMarker(station);
+    }
   };
 
   const handleInfoWindowClose = () => {
@@ -274,9 +297,6 @@ const MapSection = ({
   };
 
   const handleStationSelect = (station) => {
-    if (onStationSelect) {
-      onStationSelect(station);
-    }
     // Center map on selected station
     if (mapRef.current && station?.location?.coordinates) {
       const position = {
@@ -284,7 +304,7 @@ const MapSection = ({
         lng: station.location.coordinates[0]
       };
       mapRef.current.panTo(position);
-      mapRef.current.setZoom(15);
+      mapRef.current.setZoom(16);
       setSelectedMarker(station);
     }
   };
@@ -302,18 +322,30 @@ const MapSection = ({
       display: 'flex', 
       flexDirection: 'column', 
       gap: 1,
-      overflow: 'hidden'
+      overflow: 'hidden',
+      backgroundColor: '#fafafa'
     }}>
       <Box sx={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center',
-        flexShrink: 0
+        flexShrink: 0,
+        p: 1.5,
+        backgroundColor: '#fff',
+        borderRadius: 1,
+        boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
       }}>
-        <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#2E7D32' }}>
+        <Typography variant="subtitle1" sx={{ 
+          fontWeight: 600, 
+          color: theme.palette.primary.main,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1
+        }}>
+          <EvStation sx={{ fontSize: '1.25rem' }} />
           Available Stations {stationsToDisplay?.length > 0 ? `(${stationsToDisplay.length})` : ''}
         </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <RadiusFilter radius={radius} onRadiusChange={handleRadiusChange} />
           <Tooltip title="Use my location">
             <span>
@@ -322,10 +354,11 @@ const MapSection = ({
                 size="small" 
                 disabled={isLocationLoading}
                 sx={{ 
-                  color: '#1976D2',
-                  padding: '4px',
+                  color: theme.palette.primary.main,
+                  padding: '8px',
+                  backgroundColor: alpha(theme.palette.primary.main, 0.08),
                   '&:hover': {
-                    backgroundColor: 'rgba(25, 118, 210, 0.1)'
+                    backgroundColor: alpha(theme.palette.primary.main, 0.12)
                   }
                 }}
               >
@@ -338,10 +371,11 @@ const MapSection = ({
               onClick={handleRefresh} 
               size="small"
               sx={{ 
-                color: '#2E7D32',
-                padding: '4px',
+                color: theme.palette.primary.main,
+                padding: '8px',
+                backgroundColor: alpha(theme.palette.primary.main, 0.08),
                 '&:hover': {
-                  backgroundColor: 'rgba(46, 125, 50, 0.1)'
+                  backgroundColor: alpha(theme.palette.primary.main, 0.12)
                 }
               }}
             >
@@ -352,17 +386,31 @@ const MapSection = ({
       </Box>
 
       {mapError ? (
-        <Box sx={{ p: 1, textAlign: 'center' }}>
+        <Box sx={{ 
+          p: 2, 
+          textAlign: 'center',
+          backgroundColor: '#fff',
+          borderRadius: 1,
+          boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+        }}>
           <Typography variant="body2" color="error">{mapError}</Typography>
         </Box>
       ) : !isLoaded ? (
-        <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-          <CircularProgress size={20} sx={{ color: '#2E7D32' }} />
+        <Box sx={{ 
+          flex: 1, 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center',
+          backgroundColor: '#fff',
+          borderRadius: 1,
+          boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+        }}>
+          <CircularProgress size={24} sx={{ color: theme.palette.primary.main }} />
         </Box>
       ) : (
         <Box sx={{ 
           display: 'flex', 
-          gap: 1, 
+          gap: 2, 
           flex: 1, 
           minHeight: 0,
           height: 'calc(100vh - 180px)'
@@ -372,135 +420,299 @@ const MapSection = ({
             flex: 2, 
             position: 'relative', 
             minHeight: 0,
-            height: '100%'
+            height: '100%',
+            borderRadius: 1,
+            overflow: 'hidden',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
           }}>
-          <GoogleMap
-            mapContainerStyle={mapContainerStyle}
+            {/* Station Status Legend - Overlay */}
+            <Box sx={{ 
+              position: 'absolute',
+              top: 10,
+              right: 10,
+              zIndex: 1000,
+              display: 'flex', 
+              gap: 1.5, 
+              p: 1, 
+              backgroundColor: 'rgba(255, 255, 255, 0.95)',
+              borderRadius: 1,
+              boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+              border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+              alignItems: 'center',
+              backdropFilter: 'blur(4px)'
+            }}>
+              <Typography variant="caption" sx={{ 
+                color: theme.palette.text.secondary,
+                fontWeight: 500,
+                fontSize: '0.7rem',
+                mr: 0.5
+              }}>
+                Status:
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                <Box sx={{ 
+                  width: 8, 
+                  height: 8, 
+                  borderRadius: '50%', 
+                  backgroundColor: '#2E7D32',
+                  border: '1px solid #fff',
+                  boxShadow: '0 0 0 1px rgba(0,0,0,0.1)'
+                }} />
+                <Typography variant="caption" sx={{ fontWeight: 500, fontSize: '0.7rem' }}>Active</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                <Box sx={{ 
+                  width: 8, 
+                  height: 8, 
+                  borderRadius: '50%', 
+                  backgroundColor: '#D32F2F',
+                  border: '1px solid #fff',
+                  boxShadow: '0 0 0 1px rgba(0,0,0,0.1)'
+                }} />
+                <Typography variant="caption" sx={{ fontWeight: 500, fontSize: '0.7rem' }}>Inactive</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                <Box sx={{ 
+                  width: 8, 
+                  height: 8, 
+                  borderRadius: '50%', 
+                  backgroundColor: '#F57C00',
+                  border: '1px solid #fff',
+                  boxShadow: '0 0 0 1px rgba(0,0,0,0.1)'
+                }} />
+                <Typography variant="caption" sx={{ fontWeight: 500, fontSize: '0.7rem' }}>Maintenance</Typography>
+              </Box>
+            </Box>
+
+            <GoogleMap
+              mapContainerStyle={mapContainerStyle}
               center={currentLocation || mapCenter}
-            zoom={13}
-            onLoad={onMapLoad}
-            options={{
+              zoom={13}
+              onLoad={onMapLoad}
+              options={{
                 disableDefaultUI: true,
-              zoomControl: true,
+                zoomControl: true,
                 mapTypeControl: false,
-              streetViewControl: false,
+                streetViewControl: false,
                 fullscreenControl: false,
                 styles: mapStyles,
                 gestureHandling: 'greedy'
-            }}
-          >
-            {mapLoaded && (
-              <>
-                {/* User Location Marker */}
-                  {currentLocation && (
-                    <Marker
-                      position={currentLocation}
-                      icon={userMarkerIcon}
-                      title="Your Location"
-                      zIndex={1000}
-                    />
-                )}
+              }}
+            >
+              {mapLoaded && (
+                <>
+                  {/* User Location Marker */}
+                    {currentLocation && (
+                      <Marker
+                        position={currentLocation}
+                        icon={userMarkerIcon}
+                        title="Your Location"
+                        zIndex={1000}
+                      />
+                  )}
 
-                {/* Station Markers */}
-                {stationsToDisplay && stationsToDisplay.length > 0 && stationsToDisplay.map((station) => {
-                  if (!station?.location?.coordinates || 
-                      !Array.isArray(station.location.coordinates) || 
-                      station.location.coordinates.length < 2) {
-                    return null;
-                  }
-                  
-                  const markerKey = `station-${station._id}-${station.location.coordinates[1]}-${station.location.coordinates[0]}`;
-                  
-                  return (
-                    <Marker
-                      key={markerKey}
-                      position={{
-                        lat: station.location.coordinates[1],
-                        lng: station.location.coordinates[0]
-                      }}
-                      onClick={() => handleMarkerClick(station)}
-                      title={station.name || 'Charging Station'}
-                      icon={customMarkerIcon}
-                      zIndex={1}
-                    />
-                  );
-                })}
-
-                {/* InfoWindow */}
-                {selectedMarker && (
-                  <InfoWindow
-                    position={{
-                      lat: selectedMarker.location.coordinates[1],
-                      lng: selectedMarker.location.coordinates[0]
-                    }}
-                    onCloseClick={handleInfoWindowClose}
-                    options={{
-                      pixelOffset: new window.google.maps.Size(0, -30),
-                      maxWidth: 200
-                    }}
-                  >
-                    <Box sx={{ p: 1 }}>
-                      <Typography variant="subtitle2" sx={{ 
-                        fontWeight: 600, 
-                        color: theme.palette.primary.main,
-                        fontSize: '0.875rem',
-                        mb: 0.5
-                      }}>
-                        {selectedMarker.name}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ 
-                        fontSize: '0.75rem',
-                        mb: 1
-                      }}>
-                        {selectedMarker.numberOfConnectors} Connectors Available
-                      </Typography>
-                      <Button
-                        variant="contained"
-                        size="small"
-                        startIcon={<BookOnline />}
-                        onClick={(e) => handleBookStation(selectedMarker, e)}
-                        fullWidth
-                        sx={{ 
-                          backgroundColor: theme.palette.primary.main,
-                          '&:hover': {
-                            backgroundColor: theme.palette.primary.dark
-                          },
-                          fontSize: '0.75rem',
-                          py: 0.5
+                  {/* Station Markers */}
+                  {stationsToDisplay && stationsToDisplay.length > 0 && stationsToDisplay.map((station) => {
+                    if (!station?.location?.coordinates || 
+                        !Array.isArray(station.location.coordinates) || 
+                        station.location.coordinates.length < 2) {
+                      return null;
+                    }
+                    
+                    const markerKey = `station-${station._id}-${station.location.coordinates[1]}-${station.location.coordinates[0]}`;
+                    const status = station.status?.toLowerCase() || 'active';
+                    
+                    return (
+                      <Marker
+                        key={markerKey}
+                        position={{
+                          lat: station.location.coordinates[1],
+                          lng: station.location.coordinates[0]
                         }}
-                      >
-                        Book Now
-                      </Button>
-                    </Box>
-                  </InfoWindow>
-                )}
-              </>
-            )}
-          </GoogleMap>
+                        onClick={() => handleMarkerClick(station)}
+                        icon={customMarkerIcon[status] || customMarkerIcon.active}
+                        zIndex={selectedMarker?._id === station._id ? 2 : 1}
+                      />
+                    );
+                  })}
+
+                  {/* InfoWindow - Only show one InfoWindow for the selected marker */}
+                  {selectedMarker && (
+                    <InfoWindow
+                      position={{
+                        lat: selectedMarker.location.coordinates[1],
+                        lng: selectedMarker.location.coordinates[0]
+                      }}
+                      onCloseClick={handleInfoWindowClose}
+                      options={{
+                        pixelOffset: new window.google.maps.Size(0, -30),
+                        maxWidth: 280,
+                        disableAutoPan: false,
+                        shouldFocus: true
+                      }}
+                    >
+                      <Box sx={{ 
+                        p: 1.5,
+                        minWidth: 200,
+                        '& .gm-style-iw': {
+                          padding: 0
+                        },
+                        '& .gm-style-iw-d': {
+                          overflow: 'hidden !important',
+                          padding: 0
+                        },
+                        '& .gm-style-iw-c': {
+                          padding: 0,
+                          borderRadius: '8px',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+                        }
+                      }}>
+                        <Box sx={{ 
+                          display: 'flex', 
+                          flexDirection: 'column', 
+                          gap: 1.5 
+                        }}>
+                          {/* Station Name and Status */}
+                          <Box sx={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between', 
+                            alignItems: 'flex-start',
+                            gap: 1
+                          }}>
+                            <Typography variant="subtitle2" sx={{ 
+                              fontWeight: 600, 
+                              color: theme.palette.primary.main,
+                              fontSize: '0.875rem',
+                              flex: 1
+                            }}>
+                              {selectedMarker.name}
+                            </Typography>
+                            <Chip
+                              label={selectedMarker.status}
+                              size="small"
+                              sx={{
+                                backgroundColor: selectedMarker.status === 'ACTIVE' ? '#E8F5E9' :
+                                               selectedMarker.status === 'INACTIVE' ? '#FFEBEE' :
+                                               '#FFF3E0',
+                                color: selectedMarker.status === 'ACTIVE' ? '#2E7D32' :
+                                       selectedMarker.status === 'INACTIVE' ? '#D32F2F' :
+                                       '#F57C00',
+                                fontWeight: 500,
+                                fontSize: '0.7rem',
+                                height: '20px',
+                                borderRadius: '4px'
+                              }}
+                            />
+                          </Box>
+
+                          {/* Station Details */}
+                          <Box sx={{ 
+                            display: 'flex', 
+                            flexDirection: 'column', 
+                            gap: 1,
+                            borderTop: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                            borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                            py: 1
+                          }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <LocationOn sx={{ 
+                                color: theme.palette.text.secondary, 
+                                fontSize: '1rem' 
+                              }} />
+                              <Typography variant="body2" color="text.secondary" sx={{ 
+                                fontSize: '0.75rem',
+                                lineHeight: 1.2
+                              }}>
+                                {selectedMarker.location.address || 'Location not available'}
+                              </Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <ElectricCar sx={{ 
+                                color: theme.palette.primary.main, 
+                                fontSize: '1rem' 
+                              }} />
+                              <Typography variant="body2" color="text.secondary" sx={{ 
+                                fontSize: '0.75rem'
+                              }}>
+                                {selectedMarker.numberOfConnectors} Connectors Available
+                              </Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <AttachMoney sx={{ 
+                                color: theme.palette.primary.main, 
+                                fontSize: '1rem' 
+                              }} />
+                              <Typography variant="body2" color="text.secondary" sx={{ 
+                                fontSize: '0.75rem'
+                              }}>
+                                {selectedMarker.ratePerHour ? `LKR ${selectedMarker.ratePerHour}/hr` : 'Rate not available'}
+                              </Typography>
+                            </Box>
+                          </Box>
+
+                          {/* Book Button */}
+                          {selectedMarker.status === 'ACTIVE' && (
+                            <Button
+                              variant="contained"
+                              size="small"
+                              startIcon={<BookOnline />}
+                              onClick={(e) => handleBookStation(selectedMarker, e)}
+                              fullWidth
+                              sx={{ 
+                                backgroundColor: theme.palette.primary.main,
+                                '&:hover': {
+                                  backgroundColor: theme.palette.primary.dark
+                                },
+                                fontSize: '0.75rem',
+                                py: 0.75,
+                                borderRadius: 1,
+                                textTransform: 'none',
+                                fontWeight: 500,
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                              }}
+                            >
+                              Book Now
+                            </Button>
+                          )}
+                        </Box>
+                      </Box>
+                    </InfoWindow>
+                  )}
+                </>
+              )}
+            </GoogleMap>
           </Box>
 
           {/* Station List */}
           <Paper 
-            elevation={1} 
+            elevation={0}
             sx={{ 
               flex: 1,
               overflow: 'hidden',
-              borderRadius: theme.shape.borderRadius,
-              border: `1px solid ${theme.palette.divider}`,
-              minWidth: '250px',
+              borderRadius: 1,
+              border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+              minWidth: '300px',
               display: 'flex',
               flexDirection: 'column',
-              height: '100%'
+              height: '100%',
+              backgroundColor: '#fff'
             }}
           >
             <Box sx={{ 
-              p: 1.5, 
-              borderBottom: `1px solid ${theme.palette.divider}`,
+              p: 2, 
+              borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
               backgroundColor: alpha(theme.palette.primary.main, 0.02),
               flexShrink: 0
             }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: theme.palette.primary.main }}>
-                Available Stations {stationsToDisplay?.length > 0 ? `(${stationsToDisplay.length})` : ''}
+              <Typography variant="subtitle1" sx={{ 
+                fontWeight: 600, 
+                color: theme.palette.primary.main,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1
+              }}>
+                <ListAlt sx={{ fontSize: '1.25rem' }} />
+                Station List
               </Typography>
             </Box>
             <Box sx={{ 
@@ -509,15 +721,14 @@ const MapSection = ({
               minHeight: 0,
               maxHeight: 'calc(100vh - 240px)',
               '&::-webkit-scrollbar': {
-                width: '8px',
+                width: '4px',
               },
               '&::-webkit-scrollbar-track': {
-                background: alpha(theme.palette.primary.main, 0.05),
-                borderRadius: '4px',
+                background: 'transparent',
               },
               '&::-webkit-scrollbar-thumb': {
                 background: alpha(theme.palette.primary.main, 0.2),
-                borderRadius: '4px',
+                borderRadius: '2px',
                 '&:hover': {
                   background: alpha(theme.palette.primary.main, 0.3),
                 },
@@ -531,7 +742,7 @@ const MapSection = ({
                         onClick={() => handleStationSelect(station)}
                         selected={selectedMarker?._id === station._id}
                         sx={{
-                          py: 1,
+                          py: 2,
                           px: 2,
                           '&.Mui-selected': {
                             backgroundColor: alpha(theme.palette.primary.main, 0.08),
@@ -542,57 +753,106 @@ const MapSection = ({
                           '&:hover': {
                             backgroundColor: alpha(theme.palette.primary.main, 0.04),
                           },
+                          transition: 'all 0.2s ease-in-out',
                         }}
                       >
                         <ListItemText
                           primary={
-                            <Box component="div">
-                              <Typography variant="subtitle2" component="span" sx={{ fontWeight: 600, color: theme.palette.primary.main, fontSize: '0.875rem' }}>
+                            <Box component="div" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                              <Typography variant="subtitle2" component="span" sx={{ 
+                                fontWeight: 600, 
+                                color: theme.palette.primary.main, 
+                                fontSize: '0.875rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 0.5
+                              }}>
+                                <EvStation sx={{ fontSize: '1rem' }} />
                                 {station.name}
                               </Typography>
+                              <Chip
+                                label={station.status}
+                                size="small"
+                                sx={{
+                                  backgroundColor: station.status === 'ACTIVE' ? '#E8F5E9' :
+                                                 station.status === 'INACTIVE' ? '#FFEBEE' :
+                                                 '#FFF3E0',
+                                  color: station.status === 'ACTIVE' ? '#2E7D32' :
+                                         station.status === 'INACTIVE' ? '#D32F2F' :
+                                         '#F57C00',
+                                  fontWeight: 500,
+                                  fontSize: '0.75rem',
+                                  height: '20px',
+                                  borderRadius: '4px'
+                                }}
+                              />
                             </Box>
                           }
                           secondary={
-                            <Box component="div" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.25 }}>
-                              <LocationOn sx={{ color: 'text.secondary', fontSize: '0.875rem' }} />
-                              <Typography variant="body2" component="span" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                                {station.location.address || 'Location not available'}
-                              </Typography>
+                            <Box component="div" sx={{ 
+                              display: 'flex', 
+                              flexDirection: 'column',
+                              gap: 0.75,
+                            }}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <LocationOn sx={{ color: 'text.secondary', fontSize: '0.875rem' }} />
+                                <Typography variant="body2" component="span" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                                  {station.location.address || 'Location not available'}
+                                </Typography>
+                              </Box>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                  <ElectricCar sx={{ color: theme.palette.primary.main, fontSize: '1rem' }} />
+                                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                                    {station.numberOfConnectors} Connectors
+                                  </Typography>
+                                </Box>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                  <AttachMoney sx={{ color: theme.palette.primary.main, fontSize: '1rem' }} />
+                                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                                    {station.ratePerHour ? `LKR ${station.ratePerHour}/hr` : 'Rate not available'}
+                                  </Typography>
+                                </Box>
+                              </Box>
                             </Box>
                           }
                         />
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <ElectricCar sx={{ color: theme.palette.primary.main, fontSize: '1rem' }} />
-                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                              {station.numberOfConnectors}
-                            </Typography>
-                          </Box>
-                          <Button
-                            variant="contained"
-                            size="small"
-                            startIcon={<BookOnline />}
-                            onClick={(e) => handleBookStation(station, e)}
-                            sx={{ 
-                              backgroundColor: theme.palette.primary.main,
-                              '&:hover': {
-                                backgroundColor: theme.palette.primary.dark
-                              },
-                              minWidth: 'auto',
-                              px: 1,
-                              py: 0.5,
-                              fontSize: '0.75rem'
-                            }}
-                          >
-                            Book
-                          </Button>
-                        </Box>
+                        <Button
+                          variant="contained"
+                          size="small"
+                          startIcon={<BookOnline />}
+                          onClick={(e) => handleBookStation(station, e)}
+                          disabled={station.status?.toUpperCase() !== 'ACTIVE'}
+                          sx={{ 
+                            backgroundColor: station.status?.toUpperCase() === 'ACTIVE' ? theme.palette.primary.main : '#E0E0E0',
+                            color: station.status?.toUpperCase() === 'ACTIVE' ? '#fff' : '#9E9E9E',
+                            '&:hover': {
+                              backgroundColor: station.status?.toUpperCase() === 'ACTIVE' ? theme.palette.primary.dark : '#E0E0E0'
+                            },
+                            minWidth: 'auto',
+                            px: 1.5,
+                            py: 0.75,
+                            fontSize: '0.75rem',
+                            borderRadius: 1,
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                            transition: 'all 0.2s ease-in-out'
+                          }}
+                        >
+                          {station.status?.toUpperCase() === 'ACTIVE' ? 'Book' : 
+                           station.status?.toUpperCase() === 'INACTIVE' ? 'Unavailable' : 
+                           station.status?.toUpperCase() === 'MAINTENANCE' ? 'Maintenance' : 'Book'}
+                        </Button>
                       </ListItemButton>
-                      {index < stationsToDisplay.length - 1 && <Divider />}
+                      {index < stationsToDisplay.length - 1 && (
+                        <Divider sx={{ 
+                          borderColor: alpha(theme.palette.divider, 0.1),
+                          my: 0
+                        }} />
+                      )}
                     </React.Fragment>
                   ))
                 ) : (
-                  <ListItem sx={{ py: 1 }}>
+                  <ListItem sx={{ py: 2 }}>
                     <ListItemText 
                       primary={
                         <Typography variant="body2" color="text.secondary" align="center" sx={{ fontSize: '0.75rem' }}>

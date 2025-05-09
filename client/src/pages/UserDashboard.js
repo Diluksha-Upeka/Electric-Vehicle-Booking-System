@@ -14,7 +14,8 @@ import {
   CardActions,
   Button,
   useTheme,
-  alpha
+  alpha,
+  useMediaQuery
 } from '@mui/material';
 import { Map, History, Settings, LocationOn, BatteryChargingFull, NavigateNext } from '@mui/icons-material';
 import axios from 'axios';
@@ -24,6 +25,8 @@ import BookingsSection from '../components/dashboard/BookingsSection';
 import ProfileSection from '../components/dashboard/ProfileSection';
 import BookingDialog from '../components/BookingDialog';
 import bookingService from '../services/bookingService';
+import UpcomingBookings from '../components/dashboard/UpcomingBookings';
+import { useAuth } from '../contexts/AuthContext';
 
 // Create axios instance with base URL
 const api = axios.create({
@@ -43,6 +46,8 @@ api.interceptors.request.use(config => {
 
 const UserDashboard = () => {
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState(0);
@@ -75,6 +80,10 @@ const UserDashboard = () => {
   const [bookingError, setBookingError] = useState('');
 
   useEffect(() => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
     fetchData();
     getUserLocation();
     // Get tab from URL query parameters
@@ -83,7 +92,7 @@ const UserDashboard = () => {
     if (tabParam !== null) {
       setActiveTab(parseInt(tabParam));
     }
-  }, [location.search]);
+  }, [user, location.search, navigate]);
 
   useEffect(() => {
     if (userLocation && stations.length > 0) {
@@ -234,6 +243,10 @@ const UserDashboard = () => {
     return bookings.filter(booking => booking.status !== 'CANCELLED');
   };
 
+  const handleLocationUpdate = (location) => {
+    setUserLocation(location);
+  };
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
@@ -243,127 +256,191 @@ const UserDashboard = () => {
   }
 
   return (
-    <Container maxWidth="xl" sx={{ 
-      py: 2,
-      mt: '64px',
-      height: 'calc(100vh - 64px)',
-      overflow: 'hidden'
-    }}>
-      <Grid container spacing={2} sx={{ height: '100%' }}>
-        {/* Left Sidebar */}
-        <Grid item xs={12} md={3}>
-          <Paper 
-            elevation={0}
-            sx={{ 
-              p: 2,
-              height: '100%',
-              borderRadius: 2,
-              border: 1,
-              borderColor: 'divider',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 2
-            }}
-          >
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              Welcome, {profileData.firstName}
-        </Typography>
-            
-        <Tabs
-          value={activeTab}
-          onChange={handleTabChange}
-              orientation="vertical"
-              variant="fullWidth"
-          sx={{
-            '& .MuiTab-root': {
-                  alignItems: 'flex-start',
-                  justifyContent: 'flex-start',
-                  minHeight: 48,
-                  textTransform: 'none',
-                  fontWeight: 500,
-                  borderRadius: 1,
-                  '&.Mui-selected': {
-                    backgroundColor: alpha(theme.palette.primary.main, 0.1),
-                    color: theme.palette.primary.main,
-                  }
-            }
+    <Box
+      sx={{
+        height: 'calc(100vh - 64px)', // Subtract navbar height
+        width: '100%',
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        bgcolor: theme.palette.background.default,
+        mt: '64px' // Add margin top for navbar
+      }}
+    >
+      <Container 
+        maxWidth="xl" 
+        sx={{ 
+          height: '100%',
+          py: 2,
+          display: 'flex',
+          flexDirection: 'column'
+        }}
+      >
+        <Grid 
+          container 
+          spacing={2} 
+          sx={{ 
+            height: '100%',
+            flex: 1,
+            minHeight: 0
           }}
         >
-          <Tab 
-            icon={<Map />} 
-            label="Find Stations" 
-            iconPosition="start"
-          />
-          <Tab 
-            icon={<History />} 
-            label="My Bookings" 
-            iconPosition="start"
-          />
-          <Tab 
-            icon={<Settings />} 
-            label="Profile" 
-            iconPosition="start"
-          />
-        </Tabs>
-          </Paper>
-        </Grid>
-
-        {/* Main Content */}
-        <Grid item xs={12} md={9}>
-          <Paper 
-            elevation={0}
+          {/* Left Sidebar */}
+          <Grid 
+            item 
+            xs={12} 
+            md={3} 
             sx={{ 
-              p: 2,
               height: '100%',
-              borderRadius: 2,
-              border: 1,
-              borderColor: 'divider',
-              overflow: 'auto'
+              display: 'flex',
+              flexDirection: 'column'
             }}
           >
-      {error ? (
-              <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
-      ) : (
-              <Box sx={{ height: '100%' }}>
-          {/* Find Stations Tab */}
-          {activeTab === 0 && (
-                  <Box sx={{ height: '100%' }}>
-                <MapSection
-                  stations={stations}
-                  nearbyStations={nearbyStations}
-                  userLocation={userLocation}
-                  mapCenter={mapCenter}
-                  onMapCenterChange={setMapCenter}
-                  onStationSelect={handleStationSelect}
-                  onRefresh={fetchData}
-                  onRadiusChange={handleRadiusChange}
-                      onBookStation={handleStationSelect}
+            <Paper 
+              elevation={0}
+              sx={{ 
+                p: 2,
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                borderRadius: 2,
+                bgcolor: alpha(theme.palette.primary.main, 0.02),
+                border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+              }}
+            >
+              <Typography 
+                variant="h6" 
+                sx={{ 
+                  mb: 2,
+                  color: theme.palette.primary.main,
+                  fontWeight: 600
+                }}
+              >
+                Welcome, {user?.name}
+              </Typography>
+
+              <Tabs
+                value={activeTab}
+                onChange={handleTabChange}
+                orientation="vertical"
+                variant="fullWidth"
+                sx={{
+                  borderRight: 1,
+                  borderColor: 'divider',
+                  mb: 2,
+                  '& .MuiTab-root': {
+                    alignItems: 'flex-start',
+                    justifyContent: 'flex-start',
+                    textTransform: 'none',
+                    fontSize: '0.9rem',
+                    py: 1.5,
+                    minHeight: '48px',
+                    '&.Mui-selected': {
+                      backgroundColor: alpha(theme.palette.primary.main, 0.08),
+                      color: theme.palette.primary.main,
+                      fontWeight: 600,
+                    },
+                  },
+                }}
+              >
+                <Tab 
+                  icon={<Map />} 
+                  label="Find Stations" 
+                  iconPosition="start"
+                />
+                <Tab 
+                  icon={<History />} 
+                  label="My Bookings" 
+                  iconPosition="start"
+                />
+                <Tab 
+                  icon={<Settings />} 
+                  label="Profile" 
+                  iconPosition="start"
+                />
+              </Tabs>
+
+              <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+                <UpcomingBookings 
+                  bookings={bookings} 
+                  onViewAll={() => handleTabChange(null, 1)}
+                />
+              </Box>
+            </Paper>
+          </Grid>
+
+          {/* Main Content */}
+          <Grid 
+            item 
+            xs={12} 
+            md={9} 
+            sx={{ 
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+          >
+            <Paper 
+              elevation={0}
+              sx={{ 
+                p: 2,
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                borderRadius: 2,
+                bgcolor: 'background.paper',
+                border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                overflow: 'hidden'
+              }}
+            >
+              {error ? (
+                <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+              ) : (
+                <Box sx={{ height: '100%' }}>
+                  {/* Find Stations Tab */}
+                  {activeTab === 0 && (
+                    <Box sx={{ height: '100%' }}>
+                      <MapSection
+                        stations={stations}
+                        nearbyStations={nearbyStations}
+                        userLocation={userLocation}
+                        mapCenter={mapCenter}
+                        onMapCenterChange={setMapCenter}
+                        onStationSelect={handleStationSelect}
+                        onRefresh={fetchData}
+                        onRadiusChange={handleRadiusChange}
+                        onLocationUpdate={handleLocationUpdate}
+                        onBookStation={(station) => {
+                          setSelectedStation(station);
+                          setBookingDialogOpen(true);
+                        }}
+                      />
+                    </Box>
+                  )}
+
+                  {/* My Bookings Tab */}
+                  {activeTab === 1 && (
+                    <BookingsSection
+                      bookings={bookings}
+                      onRefresh={fetchData}
+                      onCancelBooking={handleCancelBooking}
                     />
-                  </Box>
-          )}
+                  )}
 
-          {/* My Bookings Tab */}
-          {activeTab === 1 && (
-            <BookingsSection
-              bookings={bookings}
-                    onRefresh={fetchData}
-              onCancelBooking={handleCancelBooking}
-            />
-          )}
-
-          {/* Profile Tab */}
-          {activeTab === 2 && (
-            <ProfileSection
-              profileData={profileData}
-              onProfileChange={handleProfileChange}
-              onProfileUpdate={handleProfileUpdate}
-            />
-          )}
-        </Box>
-      )}
-          </Paper>
+                  {/* Profile Tab */}
+                  {activeTab === 2 && (
+                    <ProfileSection
+                      profileData={profileData}
+                      onProfileChange={handleProfileChange}
+                      onProfileUpdate={handleProfileUpdate}
+                    />
+                  )}
+                </Box>
+              )}
+            </Paper>
+          </Grid>
         </Grid>
-      </Grid>
+      </Container>
 
       {/* Booking Dialog */}
       <BookingDialog
@@ -387,7 +464,7 @@ const UserDashboard = () => {
           {bookingError}
         </Alert>
       )}
-    </Container>
+    </Box>
   );
 };
 

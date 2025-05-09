@@ -18,6 +18,7 @@ import {
 } from '@mui/material';
 import {
   LocationOn,
+  AttachMoney,
 } from '@mui/icons-material';
 import { GoogleMap, LoadScript, Marker, InfoWindow } from '@react-google-maps/api';
 import axios from 'axios';
@@ -64,36 +65,23 @@ const StationList = () => {
           },
         }
       );
+      console.log('Received stations data:', response.data); // Debug log
       setStations(response.data);
       setLoading(false);
     } catch (error) {
+      console.error('Error fetching stations:', error); // Debug log
       setError('Failed to fetch nearby stations');
       setLoading(false);
     }
   };
 
-  const handleStationClick = (station) => {
-    setSelectedStation(station);
-  };
-
-  const handleInfoWindowClose = () => {
-    setSelectedStation(null);
-  };
-
   const handleStationSelect = (stationId) => {
-    navigate(`/stations/${stationId}`);
+    setSelectedStation(stationId);
   };
 
   if (loading) {
     return (
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: '60vh',
-        }}
-      >
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
         <CircularProgress />
       </Box>
     );
@@ -101,118 +89,86 @@ const StationList = () => {
 
   if (error) {
     return (
-      <Container>
-        <Alert severity="error" sx={{ mt: 4 }}>
-          {error}
-        </Alert>
-      </Container>
+      <Box sx={{ mt: 4 }}>
+        <Alert severity="error">{error}</Alert>
+      </Box>
     );
   }
 
   return (
-    <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
+    <Container maxWidth="lg" sx={{ mt: 4 }}>
       <Grid container spacing={3}>
-        {/* Map Section */}
         <Grid item xs={12} md={8}>
-          <Paper sx={{ height: '70vh', overflow: 'hidden' }}>
-            {userLocation && (
-              <LoadScript googleMapsApiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY}>
-                <GoogleMap
-                  mapContainerStyle={{ width: '100%', height: '100%' }}
-                  center={userLocation}
-                  zoom={13}
-                >
-                  {stations.map((station) => (
-                    <Marker
-                      key={station._id}
-                      position={{
-                        lat: station.location.coordinates[1],
-                        lng: station.location.coordinates[0],
-                      }}
-                      onClick={() => handleStationClick(station)}
-                    />
-                  ))}
-                  {selectedStation && (
-                    <InfoWindow
-                      position={{
-                        lat: selectedStation.location.coordinates[1],
-                        lng: selectedStation.location.coordinates[0],
-                      }}
-                      onCloseClick={handleInfoWindowClose}
-                    >
-                      <Box>
-                        <Typography variant="h6">{selectedStation.name}</Typography>
-                        <Typography variant="body2">
-                          {selectedStation.address.street}, {selectedStation.address.city}
-                        </Typography>
-                        <Button
-                          variant="contained"
-                          size="small"
-                          onClick={() => handleStationSelect(selectedStation._id)}
-                          sx={{ mt: 1 }}
-                        >
-                          View Details
-                        </Button>
-                      </Box>
-                    </InfoWindow>
-                  )}
-                </GoogleMap>
-              </LoadScript>
-            )}
+          <Paper sx={{ height: '70vh' }}>
+            <LoadScript googleMapsApiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY}>
+              <GoogleMap
+                mapContainerStyle={{ width: '100%', height: '100%' }}
+                center={userLocation}
+                zoom={13}
+              >
+                {stations.map((station) => (
+                  <Marker
+                    key={station._id}
+                    position={{
+                      lat: station.location.coordinates[1],
+                      lng: station.location.coordinates[0],
+                    }}
+                    onClick={() => handleStationSelect(station._id)}
+                  />
+                ))}
+              </GoogleMap>
+            </LoadScript>
           </Paper>
         </Grid>
 
-        {/* Station List Section */}
         <Grid item xs={12} md={4}>
           <Paper sx={{ height: '70vh', overflow: 'auto' }}>
             <Typography variant="h6" sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
               Nearby Charging Stations
             </Typography>
             <List>
-              {stations.map((station) => (
-                <ListItem
-                  key={station._id}
-                  button
-                  onClick={() => handleStationSelect(station._id)}
-                >
-                  <ListItemIcon>
-                    <LocationOn color="primary" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={station.name}
-                    secondary={
-                      <Box>
-                        <Typography variant="body2" color="text.secondary">
-                          {station.address.street}, {station.address.city}
-                        </Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-                          <Rating
-                            value={station.rating}
-                            precision={0.5}
-                            readOnly
-                            size="small"
-                            sx={{ mr: 1 }}
-                          />
+              {stations.map((station) => {
+                console.log('Rendering station:', station); // Debug log for each station
+                return (
+                  <ListItem
+                    key={station._id}
+                    button
+                    onClick={() => handleStationSelect(station._id)}
+                  >
+                    <ListItemIcon>
+                      <LocationOn color="primary" />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={station.name}
+                      secondary={
+                        <Box>
                           <Typography variant="body2" color="text.secondary">
-                            ({station.reviews.length} reviews)
+                            {station.address?.street}, {station.address?.city}
                           </Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-                          {station.connectors.map((connector, index) => (
-                            <Chip
-                              key={index}
-                              label={`${connector.type} ${connector.powerOutput}kW`}
+                          <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                            <Rating
+                              value={station.rating || 0}
+                              precision={0.5}
+                              readOnly
                               size="small"
-                              color="primary"
-                              variant="outlined"
+                              sx={{ mr: 1 }}
                             />
-                          ))}
+                            <Typography variant="body2" color="text.secondary">
+                              ({station.reviews?.length || 0} reviews)
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                            <AttachMoney color="primary" sx={{ fontSize: '1rem', mr: 0.5 }} />
+                            <Typography variant="body2" color="text.secondary">
+                              {station.ratePerHour ? `LKR ${station.ratePerHour}/hr` : 'Rate not available'}
+                            </Typography>
+                          </Box>
                         </Box>
-                      </Box>
-                    }
-                  />
-                </ListItem>
-              ))}
+                      }
+                    />
+                  </ListItem>
+                );
+              })}
             </List>
           </Paper>
         </Grid>

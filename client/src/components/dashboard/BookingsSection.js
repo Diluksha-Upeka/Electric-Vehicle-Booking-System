@@ -32,7 +32,9 @@ import {
   Card,
   CardContent,
   Stack,
-  Divider
+  Divider,
+  Link,
+  CircularProgress
 } from '@mui/material';
 import {
   LocationOn,
@@ -46,9 +48,13 @@ import {
   Sort as SortIcon,
   Download as DownloadIcon,
   Print as PrintIcon,
-  Visibility as ViewIcon
+  Visibility as ViewIcon,
+  Directions as DirectionsIcon
 } from '@mui/icons-material';
 import { format, isValid, parseISO } from 'date-fns';
+import { PDFDownloadLink } from '@react-pdf/renderer';
+import BookingInvoice from '../invoice/BookingInvoice';
+import { QRCodeSVG } from 'qrcode.react';
 
 const BookingsSection = ({ bookings, onRefresh, onCancelBooking }) => {
   const theme = useTheme();
@@ -62,8 +68,9 @@ const BookingsSection = ({ bookings, onRefresh, onCancelBooking }) => {
   const [sortDirection, setSortDirection] = useState('desc');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'table'
   const [loading, setLoading] = useState(false);
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState(null);
 
   const handleCancelClick = (bookingId) => {
     setSelectedBookingId(bookingId);
@@ -224,6 +231,22 @@ const BookingsSection = ({ bookings, onRefresh, onCancelBooking }) => {
     );
   }, [filteredAndSortedBookings, page, rowsPerPage]);
 
+  const handleViewDetails = (booking) => {
+    setSelectedBooking(booking);
+    setInvoiceDialogOpen(true);
+  };
+
+  const handleCloseInvoiceDialog = () => {
+    setInvoiceDialogOpen(false);
+    setSelectedBooking(null);
+  };
+
+  const getDirectionsUrl = (location) => {
+    if (!location?.coordinates) return null;
+    const [longitude, latitude] = location.coordinates;
+    return `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
+  };
+
   const renderFilters = () => (
     <Card sx={{ mb: 3 }}>
       <CardContent>
@@ -275,22 +298,6 @@ const BookingsSection = ({ bookings, onRefresh, onCancelBooking }) => {
           </Grid>
           <Grid item xs={12} md={2}>
             <Stack direction="row" spacing={1} justifyContent="flex-end">
-              <Tooltip title="Grid View">
-                <IconButton 
-                  onClick={() => setViewMode('grid')}
-                  color={viewMode === 'grid' ? 'primary' : 'default'}
-                >
-                  <FilterIcon />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Table View">
-                <IconButton 
-                  onClick={() => setViewMode('table')}
-                  color={viewMode === 'table' ? 'primary' : 'default'}
-                >
-                  <SortIcon />
-                </IconButton>
-              </Tooltip>
               <Tooltip title="Export">
                 <IconButton>
                   <DownloadIcon />
@@ -371,10 +378,26 @@ const BookingsSection = ({ bookings, onRefresh, onCancelBooking }) => {
               <TableCell align="right">
                 <Stack direction="row" spacing={1} justifyContent="flex-end">
                   <Tooltip title="View Details">
-                    <IconButton size="small">
+                    <IconButton 
+                      size="small"
+                      onClick={() => handleViewDetails(booking)}
+                    >
                       <ViewIcon />
                     </IconButton>
                   </Tooltip>
+                  {getDirectionsUrl(booking.station?.location) && (
+                    <Tooltip title="Get Directions">
+                      <IconButton 
+                        size="small"
+                        component="a"
+                        href={getDirectionsUrl(booking.station?.location)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <DirectionsIcon />
+                      </IconButton>
+                    </Tooltip>
+                  )}
                   {booking.status !== 'CANCELLED' && (
                     <Tooltip title="Cancel Booking">
                       <IconButton 
@@ -402,112 +425,6 @@ const BookingsSection = ({ bookings, onRefresh, onCancelBooking }) => {
         onRowsPerPageChange={handleChangeRowsPerPage}
       />
     </TableContainer>
-  );
-
-  const renderGrid = () => (
-    <Grid container spacing={2}>
-      {paginatedBookings.map((booking) => (
-        <Grid item xs={12} md={6} key={booking._id}>
-    <Paper 
-            elevation={2}
-      sx={{ 
-              p: 2,
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              position: 'relative',
-              transition: 'all 0.2s ease',
-              '&:hover': {
-                boxShadow: theme.shadows[4],
-                transform: 'translateY(-2px)'
-              }
-            }}
-          >
-            <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
-              <Box>
-                <Typography variant="subtitle1" fontWeight="medium">
-                  {booking.station?.name || 'Unknown Station'}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {formatLocation(booking.station?.location)}
-                </Typography>
-              </Box>
-              <Chip
-                label={booking.status || 'UNKNOWN'}
-                color={getStatusColor(booking.status)}
-                size="small"
-              />
-            </Box>
-
-            <Box display="flex" flexDirection="column" gap={1}>
-              <Box display="flex" alignItems="center" gap={1}>
-                <AccessTime fontSize="small" color="action" />
-                <Typography variant="body2">
-                  {formatDate(booking.date)} at {formatTimeSlot(booking.timeSlot)}
-                </Typography>
-              </Box>
-
-              <Box display="flex" alignItems="center" gap={1}>
-                <LocationOn fontSize="small" color="action" />
-                <Typography variant="body2">
-                  {booking.station?.address || 'Address not available'}
-                </Typography>
-              </Box>
-
-              <Box display="flex" alignItems="center" gap={1}>
-                <Receipt fontSize="small" color="action" />
-                <Typography variant="body2">
-                  Booking ID: {booking._id}
-      </Typography>
-              </Box>
-
-              <Box 
-              sx={{
-                  mt: 1,
-                  p: 1,
-                  bgcolor: alpha(theme.palette.primary.main, 0.05),
-                  borderRadius: 1
-                }}
-              >
-                <Box display="flex" alignItems="center" gap={1}>
-                  <AttachMoney fontSize="small" color="primary" />
-                  <Typography variant="body2" color="primary">
-                    Advance Paid: LKR {(booking.advanceAmount || 0).toFixed(2)}
-                  </Typography>
-                </Box>
-                <Box display="flex" alignItems="center" gap={1} mt={0.5}>
-                  <AttachMoney fontSize="small" color="text.secondary" />
-                  <Typography variant="body2" color="text.secondary">
-                    Remaining: LKR {((booking.totalAmount || 0) - (booking.advanceAmount || 0)).toFixed(2)}
-                    </Typography>
-                  </Box>
-                  </Box>
-
-              {booking.status !== 'CANCELLED' && (
-                <Box display="flex" justifyContent="flex-end" mt={1}>
-                  <Button
-                    variant="outlined"
-                    color="error"
-                    size="small"
-                    startIcon={<CancelIcon />}
-                    onClick={() => handleCancelClick(booking._id)}
-                    sx={{
-                      borderRadius: 2,
-                      textTransform: 'none',
-                      '&:hover': {
-                        backgroundColor: alpha(theme.palette.error.main, 0.1)
-                      }
-                    }}
-                >
-                  Cancel Booking
-                </Button>
-                </Box>
-              )}
-            </Box>
-          </Paper>
-          </Grid>
-        ))}
-      </Grid>
   );
 
   return (
@@ -557,7 +474,7 @@ const BookingsSection = ({ bookings, onRefresh, onCancelBooking }) => {
           },
         },
       }}>
-        {viewMode === 'grid' ? renderGrid() : renderTable()}
+        {renderTable()}
       </Box>
 
       {/* Cancel Confirmation Dialog */}
@@ -588,6 +505,219 @@ const BookingsSection = ({ bookings, onRefresh, onCancelBooking }) => {
           >
             Yes, Cancel Booking
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Invoice Dialog */}
+      <Dialog
+        open={invoiceDialogOpen}
+        onClose={handleCloseInvoiceDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Box>
+              <Typography variant="h5" fontWeight="bold" color="primary">
+                EVCONNECT
+              </Typography>
+              <Typography variant="subtitle2" color="text.secondary">
+                Your Trusted EV Charging Partner
+              </Typography>
+            </Box>
+            <IconButton onClick={handleCloseInvoiceDialog} size="small">
+              <CancelIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          {selectedBooking && (
+            <Box sx={{ p: 2 }}>
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={8}>
+                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                    {selectedBooking.station?.name || 'Unknown Station'}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    Booking ID: {selectedBooking._id}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    justifyContent: 'flex-end',
+                    alignItems: 'center',
+                    gap: 1
+                  }}>
+                    <Chip
+                      label={selectedBooking.status}
+                      color={getStatusColor(selectedBooking.status)}
+                      size="small"
+                      sx={{ 
+                        fontWeight: 500,
+                        borderRadius: 1
+                      }}
+                    />
+                  </Box>
+                </Grid>
+                
+                <Grid item xs={12}>
+                  <Divider />
+                </Grid>
+
+                <Grid item xs={12} md={8}>
+                  <Grid container spacing={2}>
+                    <Grid item xs={6}>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        Date
+                      </Typography>
+                      <Typography variant="body1">
+                        {formatDate(selectedBooking.date)}
+                      </Typography>
+                    </Grid>
+
+                    <Grid item xs={6}>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        Time
+                      </Typography>
+                      <Typography variant="body1">
+                        {formatTimeSlot(selectedBooking.timeSlot)}
+                      </Typography>
+                    </Grid>
+
+                    <Grid item xs={12}>
+                      <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                        Payment Details
+                      </Typography>
+                      <Box sx={{ 
+                        bgcolor: theme.palette.grey[100],
+                        p: 2,
+                        borderRadius: 1
+                      }}>
+                        <Box display="flex" justifyContent="space-between" mb={1}>
+                          <Typography variant="body2">Total Amount:</Typography>
+                          <Typography variant="body2" fontWeight="bold">
+                            LKR {(selectedBooking.totalAmount || 0).toFixed(2)}
+                          </Typography>
+                        </Box>
+                        <Box display="flex" justifyContent="space-between" mb={1}>
+                          <Typography variant="body2">Advance Paid:</Typography>
+                          <Typography variant="body2" color="primary">
+                            LKR {(selectedBooking.advanceAmount || 0).toFixed(2)}
+                          </Typography>
+                        </Box>
+                        <Box display="flex" justifyContent="space-between">
+                          <Typography variant="body2">Remaining:</Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            LKR {((selectedBooking.totalAmount || 0) - (selectedBooking.advanceAmount || 0)).toFixed(2)}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </Grid>
+                  </Grid>
+                </Grid>
+
+                <Grid item xs={12} md={4}>
+                  <Box sx={{ 
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 2
+                  }}>
+                    {selectedBooking && (
+                      <PDFDownloadLink
+                        document={<BookingInvoice booking={selectedBooking} />}
+                        fileName={`booking-invoice-${selectedBooking._id}.pdf`}
+                      >
+                        {({ blob, url, loading, error }) => (
+                          <Box sx={{ 
+                            width: '100%',
+                            aspectRatio: '1',
+                            bgcolor: 'background.paper',
+                            borderRadius: 1,
+                            p: 1,
+                            boxShadow: theme.shadows[1],
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 1
+                          }}>
+                            {loading ? (
+                              <CircularProgress size={40} />
+                            ) : (
+                              <>
+                                <QRCodeSVG
+                                  value={JSON.stringify({
+                                    bookingId: selectedBooking._id,
+                                    station: selectedBooking.station?.name,
+                                    date: selectedBooking.date,
+                                    time: selectedBooking.timeSlot?.startTime,
+                                    status: selectedBooking.status
+                                  })}
+                                  size={120}
+                                  level="H"
+                                  bgColor="#ffffff"
+                                  fgColor="#2e7d32"
+                                />
+                                <Typography variant="caption" color="text.secondary" align="center">
+                                  Scan to verify booking
+                                </Typography>
+                              </>
+                            )}
+                          </Box>
+                        )}
+                      </PDFDownloadLink>
+                    )}
+                  </Box>
+                </Grid>
+
+                {getDirectionsUrl(selectedBooking.station?.location) && (
+                  <Grid item xs={12}>
+                    <Button
+                      variant="outlined"
+                      startIcon={<DirectionsIcon />}
+                      component="a"
+                      href={getDirectionsUrl(selectedBooking.station?.location)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      fullWidth
+                    >
+                      Get Directions
+                    </Button>
+                  </Grid>
+                )}
+              </Grid>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseInvoiceDialog}>Close</Button>
+          {selectedBooking && (
+            <PDFDownloadLink
+              document={<BookingInvoice booking={selectedBooking} />}
+              fileName={`booking-invoice-${selectedBooking._id}.pdf`}
+            >
+              {({ blob, url, loading, error }) =>
+                loading ? (
+                  <Button
+                    variant="contained"
+                    startIcon={<DownloadIcon />}
+                    disabled
+                  >
+                    Loading...
+                  </Button>
+                ) : (
+                  <Button
+                    variant="contained"
+                    startIcon={<DownloadIcon />}
+                  >
+                    Download Invoice
+                  </Button>
+                )
+              }
+            </PDFDownloadLink>
+          )}
         </DialogActions>
       </Dialog>
     </Box>
