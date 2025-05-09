@@ -47,13 +47,14 @@ const UpcomingBookings = ({ bookings, onViewAll }) => {
   // Filter and sort upcoming bookings
   const upcomingBookings = bookings
     .filter(booking => {
-      const bookingDate = new Date(booking.date || booking.startTime);
+      const bookingDate = new Date(booking.date);
       const today = new Date();
+      today.setHours(0, 0, 0, 0); // Reset time to start of day
       return booking.status !== 'CANCELLED' && bookingDate >= today;
     })
     .sort((a, b) => {
-      const aDate = new Date(a.date || a.startTime);
-      const bDate = new Date(b.date || b.startTime);
+      const aDate = new Date(a.date);
+      const bDate = new Date(b.date);
       return aDate - bDate;
     });
 

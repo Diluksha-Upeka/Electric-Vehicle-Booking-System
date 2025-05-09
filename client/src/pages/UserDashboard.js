@@ -240,7 +240,10 @@ const UserDashboard = () => {
   };
 
   const filterActiveBookings = (bookings) => {
-    return bookings.filter(booking => booking.status !== 'CANCELLED');
+    return bookings.filter(booking => {
+      // Keep all non-cancelled bookings
+      return booking.status !== 'CANCELLED';
+    });
   };
 
   const handleLocationUpdate = (location) => {
