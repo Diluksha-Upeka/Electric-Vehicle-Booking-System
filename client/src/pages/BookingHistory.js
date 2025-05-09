@@ -349,3 +349,7 @@ const BookingHistory = () => {
 };
 
 export default BookingHistory; 
+
+
+
+//updated the booking history page to include a status update dialog for admin users, allowing them to change the status of bookings.
