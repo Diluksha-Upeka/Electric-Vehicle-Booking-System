@@ -171,10 +171,10 @@ const AddStation = ({ open, onClose, onAdd }) => {
     try {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
-      const response = await axios.get('http://localhost:5000/api/stations', { 
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/stations`, { 
         headers,
         params: {
-          fields: 'name,location'
+          fields: 'name,location,status'
         }
       });
       setExistingStations(response.data);
@@ -213,29 +213,19 @@ const AddStation = ({ open, onClose, onAdd }) => {
   };
 
   const getMarkerIcon = (isNew = false) => {
-    if (!isLoaded || !window.google || !window.google.maps) return null;
-    
-    const color1 = isNew ? '#00C6FF' : '#00C6FF';
-    const color2 = isNew ? '#0072FF' : '#00A86B';
-    const svg = `
-      <svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="coolGradient" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
-            <stop stop-color="${color1}"/>
-            <stop offset="1" stop-color="${color2}"/>
-          </linearGradient>
-        </defs>
-        <path d="M24 4C15.72 4 9 10.72 9 19C9 29.25 24 44 24 44C24 44 39 29.25 39 19C39 10.72 32.28 4 24 4ZM24 25C20.69 25 18 22.31 18 19C18 15.69 20.69 13 24 13C27.31 13 30 15.69 30 19C30 22.31 27.31 25 24 25Z" 
-              fill="url(#coolGradient)"/>
-        <!-- White Center -->
-        <circle cx="24" cy="19" r="4" fill="white"/>
-      </svg>
-    `;
+    const baseIcon = {
+      path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z',
+      fillColor: isNew ? '#2196F3' : '#4CAF50',
+      fillOpacity: 1,
+      strokeWeight: 2,
+      strokeColor: '#FFFFFF',
+      scale: 1.5,
+      anchor: new window.google.maps.Point(12, 24),
+    };
 
     return {
-      url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
-      scaledSize: new window.google.maps.Size(48, 48),
-      anchor: new window.google.maps.Point(24, 44)
+      ...baseIcon,
+      fillColor: isNew ? '#2196F3' : '#4CAF50',
     };
   };
 
@@ -281,6 +271,7 @@ const AddStation = ({ open, onClose, onAdd }) => {
                 }}
                 title={station.name}
                 icon={getMarkerIcon(false)}
+                animation={window.google.maps.Animation.DROP}
               />
             ))}
             
@@ -290,6 +281,7 @@ const AddStation = ({ open, onClose, onAdd }) => {
                 position={marker}
                 title="New Station Location"
                 icon={getMarkerIcon(true)}
+                animation={window.google.maps.Animation.BOUNCE}
               />
             )}
           </GoogleMap>
