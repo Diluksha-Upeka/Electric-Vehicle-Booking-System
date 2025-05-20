@@ -170,16 +170,39 @@ const AddStation = ({ open, onClose, onAdd }) => {
   const fetchExistingStations = async () => {
     try {
       const token = localStorage.getItem('token');
+      if (!token) {
+        console.error('No authentication token found');
+        return;
+      }
+
       const headers = { Authorization: `Bearer ${token}` };
-      const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/stations`, { 
+      const apiUrl = 'https://evcbs-backend.onrender.com';
+      console.log('Fetching stations from:', `${apiUrl}/api/stations`);
+
+      const response = await axios.get(`${apiUrl}/api/stations`, { 
         headers,
         params: {
           fields: 'name,location,status'
         }
       });
-      setExistingStations(response.data);
+
+      console.log('Received stations data:', response.data);
+      
+      if (!Array.isArray(response.data)) {
+        console.error('Invalid response format. Expected an array of stations');
+        return;
+      }
+
+      const validStations = response.data.filter(station => 
+        station.location && 
+        Array.isArray(station.location.coordinates) && 
+        station.location.coordinates.length === 2
+      );
+
+      console.log('Valid stations to display:', validStations);
+      setExistingStations(validStations);
     } catch (error) {
-      console.error('Error fetching stations:', error);
+      console.error('Error fetching stations:', error.response?.data || error.message);
     } finally {
       setLoading(false);
     }
@@ -262,18 +285,21 @@ const AddStation = ({ open, onClose, onAdd }) => {
             }}
           >
             {/* Existing Stations */}
-            {!loading && existingStations.map((station) => (
-              <Marker
-                key={station._id}
-                position={{
-                  lat: station.location.coordinates[1],
-                  lng: station.location.coordinates[0]
-                }}
-                title={station.name}
-                icon={getMarkerIcon(false)}
-                animation={window.google.maps.Animation.DROP}
-              />
-            ))}
+            {!loading && existingStations.length > 0 && existingStations.map((station) => {
+              console.log('Rendering station:', station);
+              return (
+                <Marker
+                  key={station._id}
+                  position={{
+                    lat: station.location.coordinates[1],
+                    lng: station.location.coordinates[0]
+                  }}
+                  title={station.name}
+                  icon={getMarkerIcon(false)}
+                  animation={window.google.maps.Animation.DROP}
+                />
+              );
+            })}
             
             {/* New Station Marker */}
             {marker && (
