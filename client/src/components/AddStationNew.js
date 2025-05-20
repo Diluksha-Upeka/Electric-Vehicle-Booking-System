@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -23,6 +23,7 @@ import { GoogleMap, LoadScript, Marker, useJsApiLoader } from '@react-google-map
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { TimePicker } from '@mui/x-date-pickers/TimePicker';
+import axios from 'axios';
 
 const containerStyle = {
   width: '100%',
@@ -92,11 +93,79 @@ const AddStation = ({ open, onClose, onAdd }) => {
   const [marker, setMarker] = useState(null);
   const [selectedAmenities, setSelectedAmenities] = useState([]);
   const [mapError, setMapError] = useState(null);
+  const [existingStations, setExistingStations] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY,
     libraries: ['places']
   });
+
+  useEffect(() => {
+    if (open) {
+      fetchExistingStations();
+    }
+  }, [open]);
+
+  const fetchExistingStations = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.error('No authentication token found');
+        return;
+      }
+
+      const headers = { Authorization: `Bearer ${token}` };
+      const apiUrl = 'https://evcbs-backend.onrender.com';
+      console.log('Fetching stations from:', `${apiUrl}/api/stations`);
+
+      const response = await axios.get(`${apiUrl}/api/stations`, { 
+        headers,
+        params: {
+          fields: 'name,location,status'
+        }
+      });
+
+      console.log('Received stations data:', response.data);
+      
+      if (!Array.isArray(response.data)) {
+        console.error('Invalid response format. Expected an array of stations');
+        return;
+      }
+
+      const validStations = response.data.filter(station => 
+        station.location && 
+        Array.isArray(station.location.coordinates) && 
+        station.location.coordinates.length === 2
+      );
+
+      console.log('Valid stations to display:', validStations);
+      setExistingStations(validStations);
+    } catch (error) {
+      console.error('Error fetching stations:', error.response?.data || error.message);
+      setMapError('Failed to load existing stations');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getMarkerIcon = (isNew = false) => {
+    const baseIcon = {
+      path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z',
+      fillColor: isNew ? '#2196F3' : '#4CAF50',
+      fillOpacity: 1,
+      strokeWeight: 2,
+      strokeColor: '#FFFFFF',
+      scale: 1.5,
+      anchor: new window.google.maps.Point(12, 24),
+    };
+
+    return {
+      ...baseIcon,
+      fillColor: isNew ? '#2196F3' : '#4CAF50',
+    };
+  };
 
   const validateForm = () => {
     const newErrors = {};
@@ -234,8 +303,43 @@ const AddStation = ({ open, onClose, onAdd }) => {
         onClick={handleMapClick}
         onLoad={onLoad}
         onUnmount={onUnmount}
+        options={{
+          disableDefaultUI: true,
+          zoomControl: true,
+          gestureHandling: 'greedy',
+          mapTypeControl: true,
+          mapTypeControlOptions: {
+            style: 2,
+            mapTypeIds: ['roadmap', 'satellite']
+          }
+        }}
       >
-        {marker && <Marker position={marker} />}
+        {/* Existing Stations */}
+        {!loading && existingStations.length > 0 && existingStations.map((station) => {
+          console.log('Rendering station:', station);
+          return (
+            <Marker
+              key={station._id}
+              position={{
+                lat: station.location.coordinates[1],
+                lng: station.location.coordinates[0]
+              }}
+              title={station.name}
+              icon={getMarkerIcon(false)}
+              animation={window.google.maps.Animation.DROP}
+            />
+          );
+        })}
+        
+        {/* New Station Marker */}
+        {marker && (
+          <Marker
+            position={marker}
+            title="New Station Location"
+            icon={getMarkerIcon(true)}
+            animation={window.google.maps.Animation.BOUNCE}
+          />
+        )}
       </GoogleMap>
     );
   };
