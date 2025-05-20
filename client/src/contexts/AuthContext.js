@@ -6,7 +6,7 @@ const AuthContext = createContext(null);
 
 // Create axios instance with base URL
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL ? process.env.REACT_APP_API_URL.replace(/\/+$/, '') : '', // Remove all trailing slashes
+  baseURL: 'https://evcbs-backend.onrender.com',
   headers: {
     'Content-Type': 'application/json'
   }

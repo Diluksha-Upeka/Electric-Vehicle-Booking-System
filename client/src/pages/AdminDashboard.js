@@ -169,8 +169,8 @@ const AdminDashboard = () => {
       const headers = { Authorization: `Bearer ${token}` };
 
       const [usersResponse, stationsResponse] = await Promise.all([
-        axios.get('http://localhost:5000/api/auth/users', { headers }),
-        axios.get('http://localhost:5000/api/stations', { headers })
+        axios.get('https://evcbs-backend.onrender.com/api/auth/users', { headers }),
+        axios.get('https://evcbs-backend.onrender.com/api/stations', { headers })
       ]);
 
       setUsers(usersResponse.data);
@@ -188,7 +188,7 @@ const AdminDashboard = () => {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
       
-      await axios.post('http://localhost:5000/api/stations', stationData, { headers });
+      await axios.post('https://evcbs-backend.onrender.com/api/stations', stationData, { headers });
       fetchData(); // Refresh the stations list
     } catch (error) {
       console.error('Error adding station:', error);
@@ -211,7 +211,7 @@ const AdminDashboard = () => {
 
       console.log('Updating station with data:', updatedStationData);
       
-      const response = await axios.put(`http://localhost:5000/api/stations/${stationId}`, updatedStationData, { headers });
+      const response = await axios.put(`https://evcbs-backend.onrender.com/api/stations/${stationId}`, updatedStationData, { headers });
       
       console.log('Update response:', response.data);
       
@@ -235,7 +235,7 @@ const AdminDashboard = () => {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
       
-      await axios.delete(`http://localhost:5000/api/stations/${stationId}`, { headers });
+      await axios.delete(`https://evcbs-backend.onrender.com/api/stations/${stationId}`, { headers });
       fetchData(); // Refresh the stations list
       setDeleteDialogOpen(false);
     } catch (error) {
@@ -261,7 +261,7 @@ const AdminDashboard = () => {
         chargingPreferences: userData.chargingPreferences || {}
       };
       
-      await axios.put(`http://localhost:5000/api/auth/users/${userId}`, updatedUserData, { headers });
+      await axios.put(`https://evcbs-backend.onrender.com/api/auth/users/${userId}`, updatedUserData, { headers });
       fetchData(); // Refresh the users list
       setEditUserOpen(false);
     } catch (error) {
@@ -275,7 +275,7 @@ const AdminDashboard = () => {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
       
-      await axios.delete(`http://localhost:5000/api/auth/users/${userId}`, { headers });
+      await axios.delete(`https://evcbs-backend.onrender.com/api/auth/users/${userId}`, { headers });
       fetchData(); // Refresh the users list
       setDeleteUserDialogOpen(false);
     } catch (error) {
@@ -294,7 +294,7 @@ const AdminDashboard = () => {
         role: newRole
       };
       
-      await axios.put(`http://localhost:5000/api/auth/users/${userId}`, updatedUserData, { headers });
+      await axios.put(`https://evcbs-backend.onrender.com/api/auth/users/${userId}`, updatedUserData, { headers });
       fetchData(); // Refresh the users list
       setPromoteDialogOpen(false);
     } catch (error) {
